@@ -1,11 +1,14 @@
 <?php
 // api/config.php
 
+// Forzar que la respuesta sea JSON
+header('Content-Type: application/json');
+
 // ========== DATOS CORRECTOS PARA OHIO (us-east-2) ==========
-$host = 'aws-0-us-east-2.pooler.supabase.com';  // Pooler compatible con IPv4
-$port = '5432';  // Session pooler usa 5432 (NO 6543)
+$host = 'aws-0-us-east-2.pooler.supabase.com';
+$port = '5432';
 $dbname = 'postgres';
-$user = 'postgres.ownjmawswuygfhltlzts';  // Usuario con el ID del proyecto
+$user = 'postgres.ownjmawswuygfhltlzts';
 $password = 'Marin60563764';
 // ===========================================================
 
@@ -19,10 +22,8 @@ $conn = @pg_connect($conn_str);
 if (!$conn) {
     die(json_encode([
         'error' => 'Error de conexión',
-        'detalle' => pg_last_error(),
-        'solucion' => 'Verifica que en el Dashboard seleccionaste "agrupador de sesiones"'
+        'detalle' => pg_last_error()
     ]));
 }
 
 echo json_encode(['success' => true, 'message' => '¡Conectado a Supabase correctamente!']);
-?>
