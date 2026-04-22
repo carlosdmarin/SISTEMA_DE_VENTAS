@@ -1,11 +1,27 @@
-FROM php:8.2-apache
+<?php
+// api/config.php - Diagnóstico
 
-# Instalar PostgreSQL y extensiones
-RUN apt-get update && apt-get install -y libpq-dev \
-    && docker-php-ext-install pdo_pgsql pgsql
+$host = 'db.ownjmawswuygflhtlzts.supabase.co';
+$port = '5432';
+$dbname = 'postgres';
+$user = 'postgres';
+$password = 'Marin60563764';
 
-# Copiar archivos
-COPY . /var/www/html/
+// Verificar si la función pg_connect existe
+if (!function_exists('pg_connect')) {
+    die(json_encode([
+        'error' => 'PostgreSQL no está instalado en el servidor',
+        'solution' => 'El Dockerfile necesita instalar pgsql'
+    ]));
+}
 
-# Configurar permisos
-RUN chown -R www-data:www-data /var/www/html
+// Intentar conectar
+$conn_str = "host=$host port=$port dbname=$dbname user=$user password=$password";
+$conn = pg_connect($conn_str);
+
+if (!$conn) {
+    die(json_encode(['error' => 'Error de conexión: ' . pg_last_error()]));
+}
+
+echo json_encode(['success' => true, 'message' => 'Conectado a PostgreSQL']);
+?>
