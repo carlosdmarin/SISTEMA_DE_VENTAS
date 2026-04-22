@@ -12,33 +12,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Conexión a BD
-$conn = new mysqli('localhost', 'root', '', 'lavasoft_db');
+// Conexión a PostgreSQL (Supabase)
+require_once 'config.php';
 
-if ($conn->connect_error) {
-    echo json_encode(['error' => 'Conexión fallida: ' . $conn->connect_error]);
-    exit();
-}
+// La conexión ya está en $conn (de config.php)
+// $conn es el recurso de pg_connect
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 // ========== GET: Ventas de hoy ==========
 if ($method === 'GET' && isset($_GET['hoy'])) {
-    // Usar LIKE para comparar solo la fecha (año-mes-día)
+    // Obtener fecha actual del servidor
+    $fecha = date('Y-m-d');
+    
     $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
             FROM ventas 
-            WHERE fecha_registro LIKE '2026-04-21%'
+            WHERE DATE(fecha_registro) = '$fecha'
             ORDER BY fecha_registro DESC";
     
-    $result = $conn->query($sql);
+    $result = pg_query($conn, $sql);
     
     if (!$result) {
-        echo json_encode(['error' => 'Error en consulta: ' . $conn->error]);
+        echo json_encode(['error' => 'Error en consulta: ' . pg_last_error($conn)]);
         exit();
     }
     
     $ventas = [];
-    while ($row = $result->fetch_assoc()) {
+    while ($row = pg_fetch_assoc($result)) {
         $ventas[] = $row;
     }
     
@@ -48,18 +48,18 @@ if ($method === 'GET' && isset($_GET['hoy'])) {
 
 // ========== GET: Historial por fecha ==========
 if ($method === 'GET' && isset($_GET['desde']) && isset($_GET['hasta'])) {
-    $desde = $conn->real_escape_string($_GET['desde']);
-    $hasta = $conn->real_escape_string($_GET['hasta']);
+    $desde = pg_escape_string($conn, $_GET['desde']);
+    $hasta = pg_escape_string($conn, $_GET['hasta']);
     
     $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
             FROM ventas 
             WHERE DATE(fecha_registro) BETWEEN '$desde' AND '$hasta' 
             ORDER BY fecha_registro DESC";
     
-    $result = $conn->query($sql);
+    $result = pg_query($conn, $sql);
     
     $ventas = [];
-    while ($row = $result->fetch_assoc()) {
+    while ($row = pg_fetch_assoc($result)) {
         $ventas[] = $row;
     }
     
@@ -71,18 +71,21 @@ if ($method === 'GET' && isset($_GET['desde']) && isset($_GET['hasta'])) {
 if ($method === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
     
-    $nombre = $conn->real_escape_string($data['nombreCliente']);
+    $nombre = pg_escape_string($conn, $data['nombreCliente']);
     $kilos = floatval($data['kilos']);
     $total = $kilos * 4;
     $estado = ($data['estado'] === 'pagado') ? 'cancelado' : $data['estado'];
     
     $sql = "INSERT INTO ventas (nombre_cliente, kilos, total, estado) 
-            VALUES ('$nombre', $kilos, $total, '$estado')";
+            VALUES ('$nombre', $kilos, $total, '$estado') RETURNING id_venta";
     
-    if ($conn->query($sql)) {
-        echo json_encode(['success' => true, 'id' => $conn->insert_id]);
+    $result = pg_query($conn, $sql);
+    
+    if ($result) {
+        $row = pg_fetch_assoc($result);
+        echo json_encode(['success' => true, 'id' => $row['id_venta']]);
     } else {
-        echo json_encode(['success' => false, 'error' => $conn->error]);
+        echo json_encode(['success' => false, 'error' => pg_last_error($conn)]);
     }
     exit();
 }
@@ -96,10 +99,10 @@ if ($method === 'PUT') {
         $id = intval($matches[1]);
         $sql = "UPDATE ventas SET estado = 'cancelado' WHERE id_venta = $id";
         
-        if ($conn->query($sql)) {
+        if (pg_query($conn, $sql)) {
             echo json_encode(['success' => true]);
         } else {
-            echo json_encode(['success' => false, 'error' => $conn->error]);
+            echo json_encode(['success' => false, 'error' => pg_last_error($conn)]);
         }
     } else {
         echo json_encode(['success' => false, 'error' => 'ID no encontrado']);
