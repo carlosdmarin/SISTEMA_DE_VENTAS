@@ -3,7 +3,7 @@
 // ============================================
 
 // Para desarrollo local (XAMPP)
-const API = "http://localhost/SISTEMA_DE_VENTAS/api/ventas.php";
+const API = "/api/ventas.php";
 
 // Variables para búsqueda
 let ventasHoyOriginal = [];
