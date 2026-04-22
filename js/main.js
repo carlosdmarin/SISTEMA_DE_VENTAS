@@ -1,17 +1,44 @@
 // ============================================
-// CONFIGURACIÓN - Cambia esto según donde estés
+// CONFIGURACIÓN DIRECTA DE SUPABASE
 // ============================================
-
-// Para desarrollo local (XAMPP)
-const API = "/api/ventas.php";
+const SUPABASE_URL = 'https://ownjmawswuygfhltlzts.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bmptYXdzdXd5Z2ZsaHRsenRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTM5NjU4NjAsImV4cCI6MjAyOTU0MTg2MH0.VEkbC4CmJ8P2Cp6dxwVfILXZvRL9YJrmZ7VhqR2pGZg';
 
 // Variables para búsqueda
 let ventasHoyOriginal = [];
 let ventasHistorialOriginal = [];
 
 // ============================================
-// CÓDIGO COMPLETO
+// FUNCIÓN GENÉRICA PARA LLAMAR A SUPABASE
 // ============================================
+async function supabaseQuery(endpoint, method = 'GET', body = null) {
+    const headers = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+    };
+    
+    if (method === 'POST' || method === 'PATCH') {
+        headers['Prefer'] = 'return=representation';
+    }
+    
+    const options = {
+        method: method,
+        headers: headers
+    };
+    
+    if (body) {
+        options.body = JSON.stringify(body);
+    }
+    
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, options);
+    
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+}
 
 /* ──── Drawer ──── */
 function openDrawer() { 
@@ -36,7 +63,6 @@ function goTo(page) {
         cargarVentasHoy();
     }
     if (page === 'ventas') {
-        // Limpiar formulario al entrar
         const nombreInput = document.getElementById('nombre');
         const kilosInput = document.getElementById('kilos');
         const totalSpan = document.getElementById('totalMostrado');
@@ -56,28 +82,15 @@ function updateDateDisplay() {
     const fechaElem = document.getElementById('drawer-fecha');
     if (fechaElem) fechaElem.textContent = now.toLocaleDateString('es-PE', opts);
     
-    // Actualizar badge del topbar con total del día
     actualizarBadge();
 }
 updateDateDisplay();
 
-/* ──── Actualizar badge del topbar con total del día ──── */
+/* ──── Actualizar badge ──── */
 async function actualizarBadge() {
     try {
-        const res = await fetch(`${API}?hoy=1`);
-        
-        if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        
-        const ventas = await res.json();
-        
-        if (!Array.isArray(ventas)) {
-            console.error('La respuesta no es un array:', ventas);
-            const badge = document.getElementById('topbar-badge');
-            if (badge) badge.innerHTML = `S/ 0.00`;
-            return;
-        }
+        const hoy = new Date().toISOString().split('T')[0];
+        const ventas = await supabaseQuery(`ventas?select=*&fecha_registro=gte.${hoy}`);
         
         let total = 0;
         ventas.forEach(v => {
@@ -133,56 +146,41 @@ async function guardarVenta() {
     }
     
     const venta = {
-        nombreCliente: nombre,
+        nombre_cliente: nombre,
         kilos: kilos,
         total: kilos * 4,
         estado: estado
     };
     
     try {
-        const response = await fetch(API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(venta)
+        await supabaseQuery('ventas', 'POST', venta);
+        
+        Swal.fire({
+            icon: 'success',
+            title: '¡Venta guardada!',
+            html: `<b>${nombre}</b> · ${kilos} kg · <b>S/ ${(kilos * 4).toFixed(2)}</b>`,
+            confirmButtonColor: '#2e9050',
+            timer: 2000,
+            showConfirmButton: false
         });
         
-        const data = await response.json();
+        document.getElementById('nombre').value = '';
+        document.getElementById('kilos').value = '';
+        document.getElementById('totalMostrado').textContent = '0.00';
+        document.getElementById('estado').value = 'pendiente';
         
-        if (data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: '¡Venta guardada!',
-                html: `<b>${nombre}</b> · ${kilos} kg · <b>S/ ${(kilos * 4).toFixed(2)}</b>`,
-                confirmButtonColor: '#2e9050',
-                timer: 2000,
-                showConfirmButton: false
-            });
-            
-            const nombreInput = document.getElementById('nombre');
-            const kilosInputElem = document.getElementById('kilos');
-            const totalSpan = document.getElementById('totalMostrado');
-            const estadoSelectElem = document.getElementById('estado');
-            
-            if (nombreInput) nombreInput.value = '';
-            if (kilosInputElem) kilosInputElem.value = '';
-            if (totalSpan) totalSpan.textContent = '0.00';
-            if (estadoSelectElem) estadoSelectElem.value = 'pendiente';
-            
-            actualizarBadge();
-            
-            const pageHoy = document.getElementById('page-hoy');
-            if (pageHoy && pageHoy.classList.contains('active')) {
-                cargarVentasHoy();
-            }
-        } else {
-            throw new Error(data.error || 'Error al guardar');
+        actualizarBadge();
+        
+        const pageHoy = document.getElementById('page-hoy');
+        if (pageHoy && pageHoy.classList.contains('active')) {
+            cargarVentasHoy();
         }
     } catch (error) {
         console.error('Error:', error);
         Swal.fire({
             icon: 'error',
             title: 'Error de conexión',
-            text: 'No se pudo guardar la venta. Verifica que el servidor esté corriendo.',
+            text: 'No se pudo guardar la venta.',
             confirmButtonColor: '#2e9050'
         });
     }
@@ -205,11 +203,11 @@ function buildCard(v) {
     }
     
     const cardClass = v.estado === 'cancelado' ? 'pagado' : '';
-    const nombreCompleto = v.nombre_cliente || v.nombreCliente || 'Cliente';
+    const nombreCompleto = v.nombre_cliente || 'Cliente';
     const initials = nombreCompleto.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
     const fecha = new Date(v.fecha_registro);
     const hora = fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-    const idVenta = v.id_venta || v.idVenta;
+    const idVenta = v.id_venta;
     
     const payBtn = v.estado === 'pendiente'
         ? `<button class="btn btn-pay" onclick="pagarVenta(${idVenta}, '${nombreCompleto.replace(/'/g, "\\'")}')">
@@ -246,28 +244,11 @@ async function cargarVentasHoy() {
     listaVentas.innerHTML = '<div class="loader"><div class="spinner"></div> Cargando ventas…</div>';
     
     try {
-        const res = await fetch(`${API}?hoy=1&t=${Date.now()}`);
+        const hoy = new Date().toISOString().split('T')[0];
+        const ventas = await supabaseQuery(`ventas?select=*&fecha_registro=gte.${hoy}&order=fecha_registro.desc`);
         
-        if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        
-        const ventas = await res.json();
-        
-        if (!Array.isArray(ventas)) {
-            console.error('La respuesta no es un array:', ventas);
-            listaVentas.innerHTML = `
-                <div class="empty">
-                    <div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                    <p>Error: Respuesta inválida del servidor</p>
-                </div>`;
-            return;
-        }
-        
-        // Guardar copia original para búsqueda
         ventasHoyOriginal = ventas;
         
-        // Calcular estadísticas
         let total = 0;
         let kilos = 0;
         ventas.forEach(v => {
@@ -295,7 +276,6 @@ async function cargarVentasHoy() {
         
         listaVentas.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
         
-        // Resetear buscador
         const searchHoy = document.getElementById('searchHoy');
         if (searchHoy) searchHoy.value = '';
         const clearBtn = document.getElementById('clearSearchHoy');
@@ -309,64 +289,6 @@ async function cargarVentasHoy() {
                 <p>Sin conexión al servidor</p>
                 <small>Error: ${error.message}</small>
             </div>`;
-    }
-}
-
-/* ──── Funciones de búsqueda para Ventas de Hoy ──── */
-function buscarEnVentasHoy(termino) {
-    const searchTerm = termino.toLowerCase().trim();
-    const clearBtn = document.getElementById('clearSearchHoy');
-    const listaVentas = document.getElementById('listaVentas');
-    
-    if (searchTerm === '') {
-        if (clearBtn) clearBtn.style.display = 'none';
-        mostrarVentasHoy(ventasHoyOriginal);
-        actualizarStatsHoy(ventasHoyOriginal);
-        return;
-    }
-    
-    if (clearBtn) clearBtn.style.display = 'flex';
-    const resultados = ventasHoyOriginal.filter(v => 
-        (v.nombre_cliente || v.nombreCliente).toLowerCase().includes(searchTerm)
-    );
-    
-    mostrarVentasHoy(resultados);
-    actualizarStatsHoy(resultados);
-}
-
-function mostrarVentasHoy(ventas) {
-    const listaVentas = document.getElementById('listaVentas');
-    if (!listaVentas) return;
-    
-    if (!ventas.length) {
-        listaVentas.innerHTML = `
-            <div class="empty">
-                <div class="empty-icon"><i class="fas fa-search"></i></div>
-                <p>No se encontraron resultados</p>
-                <small>Prueba con otro nombre</small>
-            </div>`;
-        return;
-    }
-    listaVentas.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-}
-
-function actualizarStatsHoy(ventas) {
-    const total = ventas.reduce((a, v) => a + parseFloat(v.total), 0);
-    const kilos = ventas.reduce((a, v) => a + parseFloat(v.kilos), 0);
-    const stats = document.getElementById('statsHoy');
-    if (stats) {
-        const statVals = stats.querySelectorAll('.stat-val');
-        if (statVals[0]) statVals[0].textContent = ventas.length;
-        if (statVals[1]) statVals[1].textContent = kilos.toFixed(1);
-        if (statVals[2]) statVals[2].innerHTML = 'S/ ' + total.toFixed(2);
-    }
-}
-
-function resetSearchHoy() {
-    const searchInput = document.getElementById('searchHoy');
-    if (searchInput) {
-        searchInput.value = '';
-        buscarEnVentasHoy('');
     }
 }
 
@@ -385,21 +307,16 @@ async function pagarVenta(id, nombre) {
     
     if (result.isConfirmed) {
         try {
-            const response = await fetch(`${API}/${id}/pagar`, { method: 'PUT' });
-            const data = await response.json();
+            await supabaseQuery(`ventas?id_venta=eq.${id}`, 'PATCH', { estado: 'cancelado' });
             
-            if (data.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Pagado!',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-                cargarVentasHoy();
-                actualizarBadge();
-            } else {
-                throw new Error(data.error || 'Error al pagar');
-            }
+            Swal.fire({
+                icon: 'success',
+                title: '¡Pagado!',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            cargarVentasHoy();
+            actualizarBadge();
         } catch (error) {
             console.error('Error al pagar:', error);
             Swal.fire({
@@ -412,216 +329,14 @@ async function pagarVenta(id, nombre) {
     }
 }
 
-/* ──── Historial search ──── */
-async function buscarHistorial() {
-    const fechaDia = document.getElementById('fechaDia');
-    if (!fechaDia || !fechaDia.value) {
-        return Swal.fire({
-            icon: 'info',
-            title: 'Elige una fecha',
-            text: 'Selecciona una fecha para ver el historial',
-            confirmButtonColor: '#2e9050'
-        });
-    }
-    
-    const fecha = fechaDia.value;
-    const listaHistorial = document.getElementById('listaHistorial');
-    const histSummary = document.getElementById('histSummary');
-    
-    if (listaHistorial) listaHistorial.innerHTML = '<div class="loader"><div class="spinner"></div> Buscando…</div>';
-    if (histSummary) histSummary.style.display = 'none';
-    
-    try {
-        const res = await fetch(`${API}?desde=${fecha}&hasta=${fecha}&t=${Date.now()}`);
-        
-        if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        
-        const ventas = await res.json();
-        
-        if (!Array.isArray(ventas)) {
-            console.error('Respuesta inválida:', ventas);
-            if (listaHistorial) {
-                listaHistorial.innerHTML = `
-                    <div class="empty">
-                        <div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                        <p>Error en la respuesta del servidor</p>
-                    </div>`;
-            }
-            return;
-        }
-        
-        // Guardar copia original del historial
-        ventasHistorialOriginal = ventas;
-        
-        actualizarResumenHistorial(ventas);
-        
-        if (!ventas.length && listaHistorial) {
-            listaHistorial.innerHTML = `
-                <div class="empty">
-                    <div class="empty-icon"><i class="fas fa-calendar-xmark"></i></div>
-                    <p>Sin ventas en esa fecha</p>
-                    <small>Prueba con otra fecha</small>
-                </div>`;
-            return;
-        }
-        
-        if (listaHistorial) {
-            listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-        }
-        
-        // Resetear buscador de historial
-        const searchHistorial = document.getElementById('searchHistorial');
-        if (searchHistorial) searchHistorial.value = '';
-        const clearBtn = document.getElementById('clearSearchHistorial');
-        if (clearBtn) clearBtn.style.display = 'none';
-        
-    } catch (error) {
-        console.error('Error en buscarHistorial:', error);
-        if (listaHistorial) {
-            listaHistorial.innerHTML = `
-                <div class="empty">
-                    <div class="empty-icon"><i class="fas fa-plug"></i></div>
-                    <p>Error al buscar</p>
-                    <small>Verifica la conexión con el servidor</small>
-                </div>`;
-        }
-    }
-}
-
-function actualizarResumenHistorial(ventas) {
-    const totalV = ventas.length;
-    const totalK = ventas.reduce((a, v) => a + parseFloat(v.kilos), 0);
-    const totalI = ventas.reduce((a, v) => a + parseFloat(v.total), 0);
-    const pagados = ventas.filter(v => v.estado === 'cancelado').length;
-    
-    const hTotalVentas = document.getElementById('hTotalVentas');
-    const hTotalKilos = document.getElementById('hTotalKilos');
-    const hTotalIngreso = document.getElementById('hTotalIngreso');
-    const hPagados = document.getElementById('hPagados');
-    const histSummary = document.getElementById('histSummary');
-    
-    if (hTotalVentas) hTotalVentas.textContent = totalV;
-    if (hTotalKilos) hTotalKilos.textContent = totalK.toFixed(1);
-    if (hTotalIngreso) hTotalIngreso.textContent = 'S/ ' + totalI.toFixed(2);
-    if (hPagados) hPagados.textContent = pagados;
-    if (histSummary) histSummary.style.display = 'grid';
-}
-
-function mostrarHistorial(ventas) {
-    const listaHistorial = document.getElementById('listaHistorial');
-    if (!listaHistorial) return;
-    
-    if (!ventas.length) {
-        listaHistorial.innerHTML = `
-            <div class="empty">
-                <div class="empty-icon"><i class="fas fa-search"></i></div>
-                <p>No se encontraron resultados</p>
-                <small>Prueba con otro nombre</small>
-            </div>`;
-        return;
-    }
-    listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-}
-
-function buscarEnHistorial(termino) {
-    const searchTerm = termino.toLowerCase().trim();
-    const clearBtn = document.getElementById('clearSearchHistorial');
-    
-    if (searchTerm === '') {
-        if (clearBtn) clearBtn.style.display = 'none';
-        mostrarHistorial(ventasHistorialOriginal);
-        actualizarResumenHistorial(ventasHistorialOriginal);
-        return;
-    }
-    
-    if (clearBtn) clearBtn.style.display = 'flex';
-    const resultados = ventasHistorialOriginal.filter(v => 
-        (v.nombre_cliente || v.nombreCliente).toLowerCase().includes(searchTerm)
-    );
-    
-    mostrarHistorial(resultados);
-    actualizarResumenHistorial(resultados);
-}
-
-function resetSearchHistorial() {
-    const searchInput = document.getElementById('searchHistorial');
-    if (searchInput) {
-        searchInput.value = '';
-        buscarEnHistorial('');
-    }
-}
-
-/* ──── Quick date buttons ──── */
-function setQuick(opt) {
-    const fechaDia = document.getElementById('fechaDia');
-    if (!fechaDia) return;
-    
-    const today = new Date();
-    const fmt = d => d.toISOString().slice(0, 10);
-    
-    if (opt === 'hoy') {
-        fechaDia.value = fmt(today);
-    } else if (opt === 'ayer') {
-        const y = new Date(today);
-        y.setDate(y.getDate() - 1);
-        fechaDia.value = fmt(y);
-    } else if (opt === 'antier') {
-        const a = new Date(today);
-        a.setDate(a.getDate() - 2);
-        fechaDia.value = fmt(a);
-    }
-    
-    buscarHistorial();
-}
-
 /* ──── Init ──── */
 document.addEventListener('DOMContentLoaded', function() {
-    // Set default date for historial
-    const fechaDia = document.getElementById('fechaDia');
-    if (fechaDia) {
-        const today = new Date().toISOString().slice(0, 10);
-        fechaDia.value = today;
-    }
-    
-    // Auto-refresh hoy every 15s when on that page
+    cargarVentasHoy();
     setInterval(() => {
         const pageHoy = document.getElementById('page-hoy');
         if (pageHoy && pageHoy.classList.contains('active')) {
             cargarVentasHoy();
         }
     }, 15000);
-    
-    // Cargar ventas de hoy al iniciar
-    cargarVentasHoy();
-    
-    // Actualizar badge periódicamente
     setInterval(actualizarBadge, 30000);
-    
-    // ========== EVENT LISTENERS PARA BUSCADORES ==========
-    
-    // Buscador en Ventas de Hoy
-    const searchHoy = document.getElementById('searchHoy');
-    if (searchHoy) {
-        searchHoy.addEventListener('input', (e) => buscarEnVentasHoy(e.target.value));
-    }
-    
-    // Buscador en Historial
-    const searchHistorial = document.getElementById('searchHistorial');
-    if (searchHistorial) {
-        searchHistorial.addEventListener('input', (e) => buscarEnHistorial(e.target.value));
-    }
-    
-    // Botón limpiar en Ventas de Hoy
-    const clearSearchHoy = document.getElementById('clearSearchHoy');
-    if (clearSearchHoy) {
-        clearSearchHoy.addEventListener('click', () => resetSearchHoy());
-    }
-    
-    // Botón limpiar en Historial
-    const clearSearchHistorial = document.getElementById('clearSearchHistorial');
-    if (clearSearchHistorial) {
-        clearSearchHistorial.addEventListener('click', () => resetSearchHistorial());
-    }
 });
