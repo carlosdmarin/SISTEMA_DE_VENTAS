@@ -210,7 +210,7 @@
 <script>
 // ========== CONFIGURACIÓN DE SUPABASE ==========
 const SUPABASE_URL = 'https://ownjmawswuygfhltlzts.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bmptYXdzdXd5Z2ZsaHRsenRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTM5NjU4NjAsImV4cCI6MjAyOTU0MTg2MH0.VEkbC4CmJ8P2Cp6dxwVfILXZvRL9YJrmZ7VhqR2pGZg';
+const SUPABASE_KEY = 'sb_publishable_5ceuA5WElQ_dB31Oddj1bg_Pa-7uFZz';
 
 // Variables globales
 let ventasHoyOriginal = [];
