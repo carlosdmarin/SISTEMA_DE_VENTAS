@@ -1,66 +1,40 @@
 <?php
-// api/ventas.php - VERSIÓN NUCLEAR AUTO-CONTENIDA
+// api/ventas.php - Versión con API REST de Supabase
 header('Content-Type: application/json');
 
-// ========== CONFIGURACIÓN DIRECTA ==========
-$host = 'aws-0-us-east-2.pooler.supabase.com';
-$port = '5432';
-$dbname = 'postgres';
-$user = 'postgres.ownjmawswuygfhltlzts';
-$password = 'Marin60563764';
-// ==========================================
-
-// Intentar conectar
-$conn_string = "host=$host port=$port dbname=$dbname user=$user password=$password sslmode=require";
-$conn = @pg_connect($conn_string);
-
-// Si falla la conexión, devolver error
-if (!$conn) {
-    http_response_code(500);
-    echo json_encode([
-        'error' => true,
-        'mensaje' => 'No se pudo conectar a Supabase',
-        'detalle' => pg_last_error()
-    ]);
-    exit;
-}
-
-// Crear tabla si no existe
-@pg_query($conn, "
-    CREATE TABLE IF NOT EXISTS ventas (
-        id_venta SERIAL PRIMARY KEY,
-        nombre_cliente VARCHAR(255) NOT NULL,
-        kilos DECIMAL(10,2) NOT NULL,
-        total DECIMAL(10,2) NOT NULL,
-        estado VARCHAR(20) DEFAULT 'pendiente',
-        fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-");
+// ========== CONFIGURACIÓN SUPABASE ==========
+$supabase_url = 'https://ownjmawswuygfhltlzts.supabase.co';
+$supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bmptYXdzdXd5Z2ZsaHRsenRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTM5NjU4NjAsImV4cCI6MjAyOTU0MTg2MH0.VEkbC4CmJ8P2Cp6dxwVfILXZvRL9YJrmZ7VhqR2pGZg'; // <- REEMPLAZA ESTO CON TU API KEY ANON/PUBLIC
+// ===========================================
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 // ========== GET: Ventas de hoy ==========
-if ($method === 'GET' && isset($_GET['hoy'])) {
-    $fecha = date('Y-m-d');
-    $result = @pg_query_params($conn, 
-        "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
-         FROM ventas 
-         WHERE DATE(fecha_registro) = $1 
-         ORDER BY fecha_registro DESC",
-        [$fecha]
-    );
+if ($method === 'GET' && isset($_GET['hoy']) && $_GET['hoy'] == '1') {
+    $hoy = date('Y-m-d');
+    $url = "$supabase_url/rest/v1/ventas?select=*&fecha_registro=gte.$hoy&order=fecha_registro.desc";
     
-    if (!$result) {
+    $options = [
+        'http' => [
+            'header' => [
+                "apikey: $supabase_key",
+                "Authorization: Bearer $supabase_key"
+            ],
+            'method' => 'GET'
+        ]
+    ];
+    
+    $context = stream_context_create($options);
+    $response = @file_get_contents($url, false, $context);
+    
+    if ($response === false) {
+        // Si falla, devolver array vacío
         echo json_encode([]);
         exit;
     }
     
-    $ventas = [];
-    while ($row = pg_fetch_assoc($result)) {
-        $ventas[] = $row;
-    }
-    
-    echo json_encode($ventas);
+    $ventas = json_decode($response, true);
+    echo json_encode($ventas ?: []);
     exit;
 }
 
@@ -79,19 +53,38 @@ if ($method === 'POST') {
         exit;
     }
     
-    $result = @pg_query_params($conn,
-        "INSERT INTO ventas (nombre_cliente, kilos, total, estado) VALUES ($1, $2, $3, $4) RETURNING id_venta",
-        [$nombre, $kilos, $total, $estado]
-    );
+    $data = [
+        'nombre_cliente' => $nombre,
+        'kilos' => $kilos,
+        'total' => $total,
+        'estado' => $estado
+    ];
     
-    if (!$result) {
+    $url = "$supabase_url/rest/v1/ventas";
+    $options = [
+        'http' => [
+            'header' => [
+                "apikey: $supabase_key",
+                "Authorization: Bearer $supabase_key",
+                "Content-Type: application/json",
+                "Prefer: return=representation"
+            ],
+            'method' => 'POST',
+            'content' => json_encode($data)
+        ]
+    ];
+    
+    $context = stream_context_create($options);
+    $response = @file_get_contents($url, false, $context);
+    
+    if ($response === false) {
         http_response_code(500);
-        echo json_encode(['error' => pg_last_error($conn)]);
+        echo json_encode(['error' => 'Error al guardar en Supabase']);
         exit;
     }
     
-    $row = pg_fetch_assoc($result);
-    echo json_encode(['success' => true, 'id_venta' => $row['id_venta']]);
+    $result = json_decode($response, true);
+    echo json_encode(['success' => true, 'id_venta' => $result[0]['id_venta'] ?? 0]);
     exit;
 }
 
@@ -101,14 +94,29 @@ if ($method === 'PUT') {
     
     if (preg_match('/^\/(\d+)\/pagar$/', $path, $matches)) {
         $id = intval($matches[1]);
-        $result = @pg_query_params($conn,
-            "UPDATE ventas SET estado = 'cancelado' WHERE id_venta = $1",
-            [$id]
-        );
         
-        if (!$result) {
+        $url = "$supabase_url/rest/v1/ventas?id_venta=eq.$id";
+        $data = ['estado' => 'cancelado'];
+        
+        $options = [
+            'http' => [
+                'header' => [
+                    "apikey: $supabase_key",
+                    "Authorization: Bearer $supabase_key",
+                    "Content-Type: application/json",
+                    "Prefer: return=minimal"
+                ],
+                'method' => 'PATCH',
+                'content' => json_encode($data)
+            ]
+        ];
+        
+        $context = stream_context_create($options);
+        $response = @file_get_contents($url, false, $context);
+        
+        if ($response === false) {
             http_response_code(500);
-            echo json_encode(['error' => pg_last_error($conn)]);
+            echo json_encode(['error' => 'Error al actualizar']);
             exit;
         }
         
@@ -117,6 +125,5 @@ if ($method === 'PUT') {
     }
 }
 
-// Si llegamos aquí, método no soportado
 echo json_encode([]);
 ?>
