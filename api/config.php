@@ -1,30 +1,22 @@
 <?php
-// ============================================
-// CONFIGURACIÓN DE BASE DE DATOS
-// ============================================
+// api/config.php - Conexión a Supabase (PostgreSQL)
 
-// Para desarrollo local (XAMPP/WAMP)
-$host = 'localhost';
-$user = 'root';
-$password = '';
-$database = 'lavasoft_db';
+$host = 'db.ownjmawswuygflhtlzts.supabase.co';
+$port = '5432';
+$dbname = 'postgres';
+$user = 'postgres';
+$password = 'Marin60563764';
 
-// Para producción (cuando subas a hosting)
-// $host = 'tu_hosting_mysql';
-// $user = 'tu_usuario';
-// $password = 'tu_contraseña';
-// $database = 'tu_base_datos';
+// Cadena de conexión para PostgreSQL
+$conn_str = "host=$host port=$port dbname=$dbname user=$user password=$password";
 
-// Crear conexión
-$conn = new mysqli($host, $user, $password, $database);
+// Intentar conectar
+$conn = pg_connect($conn_str);
 
-// Verificar conexión
-if ($conn->connect_error) {
-    die(json_encode(['error' => 'Error de conexión: ' . $conn->connect_error]));
+if (!$conn) {
+    die(json_encode(['error' => 'Error de conexión a la base de datos: ' . pg_last_error()]));
 }
 
-// Configurar charset para UTF-8
-$conn->set_charset("utf8mb4");
-
-// No cerrar la conexión aquí, se cierra al final del script
+// Establecer zona horaria
+pg_query($conn, "SET TIME ZONE 'America/Lima'");
 ?>
