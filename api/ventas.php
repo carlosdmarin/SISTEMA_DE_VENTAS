@@ -1,7 +1,4 @@
 <?php
-// Limpiar cualquier salida previa
-ob_clean();
-
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
@@ -16,13 +13,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once 'config.php';
 
 // La conexión ya está en $conn (de config.php)
-// $conn es el recurso de pg_connect
-
 $method = $_SERVER['REQUEST_METHOD'];
 
 // ========== GET: Ventas de hoy ==========
 if ($method === 'GET' && isset($_GET['hoy'])) {
-    // Obtener fecha actual del servidor
     $fecha = date('Y-m-d');
     
     $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
