@@ -9,7 +9,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;0,9..40,900;1,9..40,400&family=Fraunces:ital,wght@0,700;0,900;1,600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="./css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
@@ -205,6 +205,6 @@
 <button class="fab" onclick="goTo('ventas')" title="Nueva venta">
     <i class="fas fa-plus"></i>
 </button>
-<script src="js/main.js"></script>
+<script src="./js/main.js"></script>
 </body>
 </html>
