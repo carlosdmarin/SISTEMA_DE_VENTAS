@@ -1,22 +1,14 @@
-<?php
-// api/config.php - Conexión a Supabase (PostgreSQL)
+FROM php:8.2-apache
 
-$host = 'db.ownjmawswuygflhtlzts.supabase.co';
-$port = '5432';
-$dbname = 'postgres';
-$user = 'postgres';
-$password = 'Marin60563764';
+# Instalar PostgreSQL y extensiones necesarias
+RUN apt-get update && apt-get install -y libpq-dev \
+    && docker-php-ext-install pdo_pgsql pgsql mysqli
 
-// Cadena de conexión para PostgreSQL
-$conn_str = "host=$host port=$port dbname=$dbname user=$user password=$password";
+# Copiar archivos
+COPY . /var/www/html/
 
-// Intentar conectar
-$conn = pg_connect($conn_str);
+# Habilitar mod_rewrite
+RUN a2enmod rewrite
 
-if (!$conn) {
-    die(json_encode(['error' => 'Error de conexión: ' . pg_last_error()]));
-}
-
-// Establecer zona horaria
-pg_query($conn, "SET TIME ZONE 'America/Lima'");
-?>
+# Configurar permisos
+RUN chown -R www-data:www-data /var/www/html
