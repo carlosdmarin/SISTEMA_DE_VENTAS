@@ -1,32 +1,48 @@
 <?php
+// api/ventas.php
+
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+require_once __DIR__ . '/config.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
+$conn = getConnection();
+
+if (!$conn) {
+    http_response_code(500);
+    die(json_encode(['error' => 'Error de conexión a la base de datos']));
 }
-
-require_once 'config.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
+$path = $_SERVER['PATH_INFO'] ?? '';
 
-// ========== GET: Ventas de hoy ==========
-if ($method === 'GET' && isset($_GET['hoy'])) {
-    $fecha = date('Y-m-d');
-    
-    $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
-            FROM ventas 
-            WHERE DATE(fecha_registro) = '$fecha'
-            ORDER BY fecha_registro DESC";
-    
-    $result = pg_query($conn, $sql);
+// GET: Obtener ventas (hoy o por rango de fechas)
+if ($method === 'GET') {
+    if (isset($_GET['hoy']) && $_GET['hoy'] == '1') {
+        $fecha = date('Y-m-d');
+        $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
+                FROM ventas 
+                WHERE DATE(fecha_registro) = $1 
+                ORDER BY fecha_registro DESC";
+        $result = pg_query_params($conn, $sql, [$fecha]);
+        
+    } elseif (isset($_GET['desde']) && isset($_GET['hasta'])) {
+        $desde = $_GET['desde'];
+        $hasta = $_GET['hasta'];
+        $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
+                FROM ventas 
+                WHERE DATE(fecha_registro) BETWEEN $1 AND $2 
+                ORDER BY fecha_registro DESC";
+        $result = pg_query_params($conn, $sql, [$desde, $hasta]);
+        
+    } else {
+        $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
+                FROM ventas 
+                ORDER BY fecha_registro DESC LIMIT 100";
+        $result = pg_query($conn, $sql);
+    }
     
     if (!$result) {
-        echo json_encode(['error' => 'Error en consulta: ' . pg_last_error($conn)]);
-        exit();
+        http_response_code(500);
+        die(json_encode(['error' => pg_last_error($conn)]));
     }
     
     $ventas = [];
@@ -35,72 +51,51 @@ if ($method === 'GET' && isset($_GET['hoy'])) {
     }
     
     echo json_encode($ventas);
-    exit();
+    exit;
 }
 
-// ========== GET: Historial ==========
-if ($method === 'GET' && isset($_GET['desde']) && isset($_GET['hasta'])) {
-    $desde = pg_escape_string($conn, $_GET['desde']);
-    $hasta = pg_escape_string($conn, $_GET['hasta']);
-    
-    $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
-            FROM ventas 
-            WHERE DATE(fecha_registro) BETWEEN '$desde' AND '$hasta' 
-            ORDER BY fecha_registro DESC";
-    
-    $result = pg_query($conn, $sql);
-    
-    $ventas = [];
-    while ($row = pg_fetch_assoc($result)) {
-        $ventas[] = $row;
-    }
-    
-    echo json_encode($ventas);
-    exit();
-}
-
-// ========== POST: Guardar venta ==========
+// POST: Crear nueva venta
 if ($method === 'POST') {
-    $data = json_decode(file_get_contents('php://input'), true);
+    $input = json_decode(file_get_contents('php://input'), true);
     
-    $nombre = pg_escape_string($conn, $data['nombreCliente']);
-    $kilos = floatval($data['kilos']);
-    $total = $kilos * 4;
-    $estado = ($data['estado'] === 'pagado') ? 'cancelado' : $data['estado'];
+    $nombreCliente = $input['nombreCliente'] ?? '';
+    $kilos = floatval($input['kilos'] ?? 0);
+    $total = floatval($input['total'] ?? 0);
+    $estado = $input['estado'] ?? 'pendiente';
     
-    $sql = "INSERT INTO ventas (nombre_cliente, kilos, total, estado) 
-            VALUES ('$nombre', $kilos, $total, '$estado') RETURNING id_venta";
-    
-    $result = pg_query($conn, $sql);
-    
-    if ($result) {
-        $row = pg_fetch_assoc($result);
-        echo json_encode(['success' => true, 'id' => $row['id_venta']]);
-    } else {
-        echo json_encode(['success' => false, 'error' => pg_last_error($conn)]);
+    if (empty($nombreCliente) || $kilos <= 0) {
+        http_response_code(400);
+        die(json_encode(['error' => 'Nombre y kilos son requeridos']));
     }
-    exit();
+    
+    $sql = "INSERT INTO ventas (nombre_cliente, kilos, total, estado) VALUES ($1, $2, $3, $4) RETURNING id_venta";
+    $result = pg_query_params($conn, $sql, [$nombreCliente, $kilos, $total, $estado]);
+    
+    if (!$result) {
+        http_response_code(500);
+        die(json_encode(['error' => pg_last_error($conn)]));
+    }
+    
+    $row = pg_fetch_assoc($result);
+    echo json_encode(['success' => true, 'id_venta' => $row['id_venta']]);
+    exit;
 }
 
-// ========== PUT: Marcar como pagado ==========
-if ($method === 'PUT') {
-    $uri = $_SERVER['REQUEST_URI'];
-    preg_match('/\/(\d+)\/pagar/', $uri, $matches);
+// PUT: Marcar venta como pagada
+if ($method === 'PUT' && preg_match('/^\/(\d+)\/pagar$/', $path, $matches)) {
+    $id = intval($matches[1]);
     
-    if (isset($matches[1])) {
-        $id = intval($matches[1]);
-        $sql = "UPDATE ventas SET estado = 'cancelado' WHERE id_venta = $id";
-        
-        if (pg_query($conn, $sql)) {
-            echo json_encode(['success' => true]);
-        } else {
-            echo json_encode(['success' => false, 'error' => pg_last_error($conn)]);
-        }
-    } else {
-        echo json_encode(['success' => false, 'error' => 'ID no encontrado']);
+    $sql = "UPDATE ventas SET estado = 'cancelado' WHERE id_venta = $1";
+    $result = pg_query_params($conn, $sql, [$id]);
+    
+    if (!$result) {
+        http_response_code(500);
+        die(json_encode(['error' => pg_last_error($conn)]));
     }
-    exit();
+    
+    echo json_encode(['success' => true]);
+    exit;
 }
 
-echo json_encode(['error' => 'Ruta no encontrada']);
-?>
+http_response_code(405);
+echo json_encode(['error' => 'Método no permitido']);
