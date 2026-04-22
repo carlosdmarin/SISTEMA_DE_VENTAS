@@ -16,7 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <!-- CSS Local - Ruta absoluta desde la raíz -->
-    <link rel="stylesheet" href="/css/style.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/style.css?v=<?php echo time(); ?>">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -246,6 +246,6 @@
     </button>
     
     <!-- JavaScript Local - Ruta absoluta desde la raíz -->
-    <script src="/js/main.js?v=<?php echo time(); ?>"></script>
+    <script src="js/main.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
