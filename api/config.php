@@ -14,7 +14,7 @@ $conn_str = "host=$host port=$port dbname=$dbname user=$user password=$password"
 $conn = pg_connect($conn_str);
 
 if (!$conn) {
-    die(json_encode(['error' => 'Error de conexión a la base de datos: ' . pg_last_error()]));
+    die(json_encode(['error' => 'Error de conexión: ' . pg_last_error()]));
 }
 
 // Establecer zona horaria
