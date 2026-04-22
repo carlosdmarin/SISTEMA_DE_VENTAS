@@ -9,10 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Conexión a PostgreSQL (Supabase)
 require_once 'config.php';
 
-// La conexión ya está en $conn (de config.php)
 $method = $_SERVER['REQUEST_METHOD'];
 
 // ========== GET: Ventas de hoy ==========
@@ -40,7 +38,7 @@ if ($method === 'GET' && isset($_GET['hoy'])) {
     exit();
 }
 
-// ========== GET: Historial por fecha ==========
+// ========== GET: Historial ==========
 if ($method === 'GET' && isset($_GET['desde']) && isset($_GET['hasta'])) {
     $desde = pg_escape_string($conn, $_GET['desde']);
     $hasta = pg_escape_string($conn, $_GET['hasta']);
