@@ -7,7 +7,7 @@ $supabase_url = getenv('SUPABASE_URL');
 $supabase_key = getenv('SUPABASE_KEY');
 
 if (!$supabase_url || !$supabase_key) {
-    echo json_encode(["error" => "Faltan variables SUPABASE_URL o SUPABASE_KEY"]);
+    echo json_encode(["error" => "Faltan variables"]);
     exit;
 }
 
@@ -34,14 +34,12 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     if (isset($_GET['hoy'])) {
         $hoy = date('Y-m-d');
-        // ✅ CORREGIDO: usa punto (.) en lugar de = después de gte
         $result = supabase("ventas?fecha_registro=gte." . $hoy . "&fecha_registro=lt." . date('Y-m-d', strtotime('+1 day')));
         echo json_encode($result ?: []);
     } 
     elseif (isset($_GET['desde']) && isset($_GET['hasta'])) {
         $desde = $_GET['desde'];
         $hasta = $_GET['hasta'];
-        // ✅ CORREGIDO: mismo formato
         $result = supabase("ventas?fecha_registro=gte." . $desde . "&fecha_registro=lte." . $hasta);
         echo json_encode($result ?: []);
     } 
