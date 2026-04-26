@@ -30,13 +30,17 @@ function getLocalDateString(date = new Date()) {
 // ============================================
 
 function openDrawer() {
-    document.getElementById('drawer').classList.add('open');
-    document.getElementById('overlay').classList.add('open');
+    const drawer = document.getElementById('drawer');
+    const overlay = document.getElementById('overlay');
+    if (drawer) drawer.classList.add('open');
+    if (overlay) overlay.classList.add('open');
 }
 
 function closeDrawer() {
-    document.getElementById('drawer').classList.remove('open');
-    document.getElementById('overlay').classList.remove('open');
+    const drawer = document.getElementById('drawer');
+    const overlay = document.getElementById('overlay');
+    if (drawer) drawer.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
 }
 
 // ============================================
@@ -47,17 +51,25 @@ function goTo(page) {
     closeDrawer();
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.drawer-nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('page-' + page).classList.add('active');
-    document.getElementById('nav-' + page).classList.add('active');
+    
+    const pageElem = document.getElementById('page-' + page);
+    const navElem = document.getElementById('nav-' + page);
+    if (pageElem) pageElem.classList.add('active');
+    if (navElem) navElem.classList.add('active');
     
     if (page === 'hoy') {
         cargarVentasHoy();
     }
     if (page === 'ventas') {
-        document.getElementById('nombre').value = '';
-        document.getElementById('kilos').value = '';
-        document.getElementById('totalMostrado').textContent = '0.00';
-        document.getElementById('estado').value = 'pendiente';
+        const nombreInput = document.getElementById('nombre');
+        const kilosInput = document.getElementById('kilos');
+        const totalSpan = document.getElementById('totalMostrado');
+        const estadoSelect = document.getElementById('estado');
+        
+        if (nombreInput) nombreInput.value = '';
+        if (kilosInput) kilosInput.value = '';
+        if (totalSpan) totalSpan.textContent = '0.00';
+        if (estadoSelect) estadoSelect.value = 'pendiente';
     }
     if (page === 'historial' && fechaHistorialActual) {
         buscarHistorialPorFecha(fechaHistorialActual);
@@ -85,10 +97,12 @@ async function actualizarBadge() {
                 }
             });
         }
-        document.getElementById('topbar-badge').innerHTML = `💰 S/ ${total.toFixed(2)}`;
+        const badge = document.getElementById('topbar-badge');
+        if (badge) badge.innerHTML = `💰 S/ ${total.toFixed(2)}`;
     } catch (error) {
         console.error('Error:', error);
-        document.getElementById('topbar-badge').innerHTML = `S/ 0.00`;
+        const badge = document.getElementById('topbar-badge');
+        if (badge) badge.innerHTML = `S/ 0.00`;
     }
 }
 
@@ -104,10 +118,20 @@ async function guardarVenta() {
     if (estado === 'pagado') estado = 'cancelado';
     
     if (!nombre) {
-        return Swal.fire({ icon: 'warning', title: '¡Falta el nombre!', text: 'Escribe el nombre del cliente', confirmButtonColor: '#3182ce' });
+        return Swal.fire({ 
+            icon: 'warning', 
+            title: '¡Falta el nombre!', 
+            text: 'Escribe el nombre del cliente', 
+            confirmButtonColor: '#3182ce' 
+        });
     }
     if (!kilos || kilos <= 0) {
-        return Swal.fire({ icon: 'warning', title: '¡Kilos inválidos!', text: 'Ingresa los kilos de ropa correctamente', confirmButtonColor: '#3182ce' });
+        return Swal.fire({ 
+            icon: 'warning', 
+            title: '¡Kilos inválidos!', 
+            text: 'Ingresa los kilos de ropa correctamente', 
+            confirmButtonColor: '#3182ce' 
+        });
     }
     
     const venta = {
@@ -127,19 +151,33 @@ async function guardarVenta() {
         const data = await response.json();
         
         if (data.success) {
-            Swal.fire({ icon: 'success', title: '¡Venta guardada!', html: `<b>${nombre}</b> · ${kilos} kg · <b>S/ ${(kilos * 4).toFixed(2)}</b>`, confirmButtonColor: '#3182ce', timer: 2000, showConfirmButton: false });
+            Swal.fire({ 
+                icon: 'success', 
+                title: '¡Venta guardada!', 
+                html: `<b>${nombre}</b> · ${kilos} kg · <b>S/ ${(kilos * 4).toFixed(2)}</b>`, 
+                confirmButtonColor: '#3182ce', 
+                timer: 2000, 
+                showConfirmButton: false 
+            });
             
-            document.getElementById('nombre').value = '';
-            document.getElementById('kilos').value = '';
-            document.getElementById('totalMostrado').textContent = '0.00';
-            document.getElementById('estado').value = 'pendiente';
+            const nombreInput = document.getElementById('nombre');
+            const kilosInput = document.getElementById('kilos');
+            const totalSpan = document.getElementById('totalMostrado');
+            const estadoSelect = document.getElementById('estado');
+            
+            if (nombreInput) nombreInput.value = '';
+            if (kilosInput) kilosInput.value = '';
+            if (totalSpan) totalSpan.textContent = '0.00';
+            if (estadoSelect) estadoSelect.value = 'pendiente';
             
             actualizarBadge();
             
-            if (document.getElementById('page-hoy').classList.contains('active')) {
+            const pageHoy = document.getElementById('page-hoy');
+            if (pageHoy && pageHoy.classList.contains('active')) {
                 cargarVentasHoy();
             }
-            if (document.getElementById('page-historial').classList.contains('active') && fechaHistorialActual) {
+            const pageHistorial = document.getElementById('page-historial');
+            if (pageHistorial && pageHistorial.classList.contains('active') && fechaHistorialActual) {
                 buscarHistorialPorFecha(fechaHistorialActual);
             }
         } else {
@@ -147,7 +185,12 @@ async function guardarVenta() {
         }
     } catch (error) {
         console.error('Error:', error);
-        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo guardar la venta.', confirmButtonColor: '#3182ce' });
+        Swal.fire({ 
+            icon: 'error', 
+            title: 'Error de conexión', 
+            text: 'No se pudo guardar la venta.', 
+            confirmButtonColor: '#3182ce' 
+        });
     }
 }
 
@@ -245,8 +288,11 @@ async function cargarVentasHoy() {
         }
         
         listaVentas.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-        document.getElementById('searchHoy').value = '';
-        document.getElementById('clearSearchHoy').style.display = 'none';
+        
+        const searchHoy = document.getElementById('searchHoy');
+        if (searchHoy) searchHoy.value = '';
+        const clearBtn = document.getElementById('clearSearchHoy');
+        if (clearBtn) clearBtn.style.display = 'none';
         
     } catch (error) {
         console.error('Error:', error);
@@ -261,7 +307,12 @@ async function cargarVentasHoy() {
 async function buscarHistorial() {
     const fechaDia = document.getElementById('fechaDia');
     if (!fechaDia || !fechaDia.value) {
-        return Swal.fire({ icon: 'info', title: 'Elige una fecha', text: 'Selecciona una fecha para ver el historial', confirmButtonColor: '#3182ce' });
+        return Swal.fire({ 
+            icon: 'info', 
+            title: 'Elige una fecha', 
+            text: 'Selecciona una fecha para ver el historial', 
+            confirmButtonColor: '#3182ce' 
+        });
     }
     
     fechaHistorialActual = fechaDia.value;
@@ -291,24 +342,32 @@ async function buscarHistorialPorFecha(fecha) {
         const totalI = ventas.reduce((a, v) => a + parseFloat(v.total), 0);
         const pagados = ventas.filter(v => v.estado === 'cancelado').length;
         
-        document.getElementById('hTotalVentas').textContent = totalV;
-        document.getElementById('hTotalKilos').textContent = totalK.toFixed(1);
-        document.getElementById('hTotalIngreso').textContent = 'S/ ' + totalI.toFixed(2);
-        document.getElementById('hPagados').textContent = pagados;
-        histSummary.style.display = 'grid';
+        const hTotalVentas = document.getElementById('hTotalVentas');
+        const hTotalKilos = document.getElementById('hTotalKilos');
+        const hTotalIngreso = document.getElementById('hTotalIngreso');
+        const hPagados = document.getElementById('hPagados');
+        
+        if (hTotalVentas) hTotalVentas.textContent = totalV;
+        if (hTotalKilos) hTotalKilos.textContent = totalK.toFixed(1);
+        if (hTotalIngreso) hTotalIngreso.textContent = 'S/ ' + totalI.toFixed(2);
+        if (hPagados) hPagados.textContent = pagados;
+        if (histSummary) histSummary.style.display = 'grid';
         
         if (!ventas.length) {
-            listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-calendar-xmark"></i></div><p>Sin ventas en esa fecha</p></div>`;
+            if (listaHistorial) listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-calendar-xmark"></i></div><p>Sin ventas en esa fecha</p></div>`;
             return;
         }
         
-        listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-        document.getElementById('searchHistorial').value = '';
-        document.getElementById('clearSearchHistorial').style.display = 'none';
+        if (listaHistorial) listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
+        
+        const searchHistorial = document.getElementById('searchHistorial');
+        if (searchHistorial) searchHistorial.value = '';
+        const clearBtn = document.getElementById('clearSearchHistorial');
+        if (clearBtn) clearBtn.style.display = 'none';
         
     } catch (error) {
         console.error('Error:', error);
-        listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-plug"></i></div><p>Error al buscar</p></div>`;
+        if (listaHistorial) listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-plug"></i></div><p>Error al buscar</p></div>`;
     }
 }
 
@@ -337,16 +396,22 @@ async function pagarVenta(id, nombre) {
                 Swal.fire({ icon: 'success', title: '¡Pagado!', timer: 1500, showConfirmButton: false });
                 cargarVentasHoy();
                 actualizarBadge();
-                if (document.getElementById('page-historial').classList.contains('active') && fechaHistorialActual) {
+                
+                const pageHistorial = document.getElementById('page-historial');
+                if (pageHistorial && pageHistorial.classList.contains('active') && fechaHistorialActual) {
                     await buscarHistorialPorFecha(fechaHistorialActual);
                 }
-                if (document.getElementById('page-reportes').classList.contains('active')) {
+                
+                const pageReportes = document.getElementById('page-reportes');
+                if (pageReportes && pageReportes.classList.contains('active')) {
                     generarVistaPrevia();
                 }
+            } else {
+                throw new Error(data.error || 'Error al pagar');
             }
         } catch (error) {
             console.error('Error:', error);
-            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo marcar como pagado' });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo marcar como pagado', confirmButtonColor: '#3182ce' });
         }
     }
 }
@@ -380,13 +445,23 @@ function setReporte(tipo) {
     reporteActual = tipo;
     
     document.querySelectorAll('.btn-report').forEach(btn => btn.classList.remove('active'));
-    // 🔴 FIX: Verificar que event existe y tiene target
+    
+    // FIX: Verificar si event existe (para evitar error en carga inicial)
     if (typeof event !== 'undefined' && event && event.target) {
         event.target.classList.add('active');
     } else {
-        // Si no hay event (carga inicial), activar el botón correspondiente
-        const btnActivo = document.querySelector(`.btn-report[onclick*="${tipo}"]`);
-        if (btnActivo) btnActivo.classList.add('active');
+        // Buscar el botón correspondiente y activarlo
+        const botones = document.querySelectorAll('.btn-report');
+        for (let i = 0; i < botones.length; i++) {
+            const btn = botones[i];
+            const btnText = btn.textContent;
+            if ((tipo === 'diario' && btnText.includes('📅')) ||
+                (tipo === 'semanal' && btnText.includes('📆')) ||
+                (tipo === 'mensual' && btnText.includes('📊'))) {
+                btn.classList.add('active');
+                break;
+            }
+        }
     }
     
     const selectorDiv = document.getElementById('selectorFecha');
@@ -403,7 +478,8 @@ function setReporte(tipo) {
 }
 
 async function generarVistaPrevia() {
-    const fechaValue = document.getElementById('fechaReporte')?.value;
+    const fechaReporte = document.getElementById('fechaReporte');
+    const fechaValue = fechaReporte?.value;
     if (!fechaValue) return;
     
     try {
@@ -425,6 +501,8 @@ async function generarVistaPrevia() {
         const ventas = await res.json();
         
         const previewDiv = document.getElementById('reportPreview');
+        if (!previewDiv) return;
+        
         if (!ventas || !ventas.length) {
             previewDiv.innerHTML = `<div class="empty-report"><i class="fas fa-chart-simple"></i><p>No hay ventas en este período</p></div>`;
             return;
@@ -455,7 +533,8 @@ async function generarVistaPrevia() {
 }
 
 async function descargarReporte() {
-    const fechaValue = document.getElementById('fechaReporte')?.value;
+    const fechaReporte = document.getElementById('fechaReporte');
+    const fechaValue = fechaReporte?.value;
     if (!fechaValue) {
         Swal.fire('Error', 'Selecciona una fecha', 'error');
         return;
@@ -525,27 +604,35 @@ function buscarEnVentasHoy(termino) {
     const searchTerm = termino.toLowerCase().trim();
     const resultados = ventasHoyOriginal.filter(v => (v.nombre_cliente || v.nombreCliente).toLowerCase().includes(searchTerm));
     const listaVentas = document.getElementById('listaVentas');
+    const clearBtn = document.getElementById('clearSearchHoy');
+    
+    if (!listaVentas) return;
     
     if (!resultados.length) {
         listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-search"></i></div><p>No se encontraron resultados</p></div>`;
+        if (clearBtn) clearBtn.style.display = searchTerm ? 'flex' : 'none';
         return;
     }
     listaVentas.innerHTML = `<div class="ventas-list">${resultados.map(buildCard).join('')}</div>`;
-    document.getElementById('clearSearchHoy').style.display = searchTerm ? 'flex' : 'none';
+    if (clearBtn) clearBtn.style.display = searchTerm ? 'flex' : 'none';
 }
 
 function buscarEnHistorial(termino) {
     const searchTerm = termino.toLowerCase().trim();
     const resultados = ventasHistorialOriginal.filter(v => (v.nombre_cliente || v.nombreCliente).toLowerCase().includes(searchTerm));
     const listaHistorial = document.getElementById('listaHistorial');
+    const clearBtn = document.getElementById('clearSearchHistorial');
+    
+    if (!listaHistorial) return;
     
     if (!resultados.length) {
         listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-search"></i></div><p>No se encontraron resultados</p></div>`;
+        if (clearBtn) clearBtn.style.display = searchTerm ? 'flex' : 'none';
         return;
     }
     listaHistorial.innerHTML = `<div class="ventas-list">${resultados.map(buildCard).join('')}</div>`;
     actualizarResumenHistorial(resultados);
-    document.getElementById('clearSearchHistorial').style.display = searchTerm ? 'flex' : 'none';
+    if (clearBtn) clearBtn.style.display = searchTerm ? 'flex' : 'none';
 }
 
 function actualizarResumenHistorial(ventas) {
@@ -554,23 +641,33 @@ function actualizarResumenHistorial(ventas) {
     const totalI = ventas.reduce((a, v) => a + parseFloat(v.total), 0);
     const pagados = ventas.filter(v => v.estado === 'cancelado').length;
     
-    document.getElementById('hTotalVentas').textContent = totalV;
-    document.getElementById('hTotalKilos').textContent = totalK.toFixed(1);
-    document.getElementById('hTotalIngreso').textContent = 'S/ ' + totalI.toFixed(2);
-    document.getElementById('hPagados').textContent = pagados;
+    const hTotalVentas = document.getElementById('hTotalVentas');
+    const hTotalKilos = document.getElementById('hTotalKilos');
+    const hTotalIngreso = document.getElementById('hTotalIngreso');
+    const hPagados = document.getElementById('hPagados');
+    
+    if (hTotalVentas) hTotalVentas.textContent = totalV;
+    if (hTotalKilos) hTotalKilos.textContent = totalK.toFixed(1);
+    if (hTotalIngreso) hTotalIngreso.textContent = 'S/ ' + totalI.toFixed(2);
+    if (hPagados) hPagados.textContent = pagados;
 }
 
 function resetSearchHoy() {
-    document.getElementById('searchHoy').value = '';
+    const searchHoy = document.getElementById('searchHoy');
+    if (searchHoy) searchHoy.value = '';
     mostrarVentasHoy(ventasHoyOriginal);
 }
+
 function resetSearchHistorial() {
-    document.getElementById('searchHistorial').value = '';
+    const searchHistorial = document.getElementById('searchHistorial');
+    if (searchHistorial) searchHistorial.value = '';
     mostrarHistorial(ventasHistorialOriginal);
 }
 
 function mostrarVentasHoy(ventas) {
     const listaVentas = document.getElementById('listaVentas');
+    if (!listaVentas) return;
+    
     if (!ventas.length) {
         listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-soap"></i></div><p>Sin ventas por hoy</p></div>`;
         return;
@@ -580,11 +677,30 @@ function mostrarVentasHoy(ventas) {
 
 function mostrarHistorial(ventas) {
     const listaHistorial = document.getElementById('listaHistorial');
+    if (!listaHistorial) return;
+    
     if (!ventas.length) {
         listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-search"></i></div><p>No se encontraron resultados</p></div>`;
         return;
     }
     listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
+}
+
+// ============================================
+// CALCULAR TOTAL AUTOMÁTICAMENTE
+// ============================================
+
+function initCalculoTotal() {
+    const kilosInput = document.getElementById('kilos');
+    const totalSpan = document.getElementById('totalMostrado');
+    
+    if (kilosInput && totalSpan) {
+        kilosInput.addEventListener('input', function() {
+            const kilos = parseFloat(this.value) || 0;
+            const total = kilos * 4.00;
+            totalSpan.textContent = total.toFixed(2);
+        });
+    }
 }
 
 // ============================================
@@ -594,22 +710,42 @@ function mostrarHistorial(ventas) {
 document.addEventListener('DOMContentLoaded', function() {
     const now = new Date();
     const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    document.getElementById('drawer-fecha').textContent = now.toLocaleDateString('es-PE', opts);
+    const fechaDrawer = document.getElementById('drawer-fecha');
+    if (fechaDrawer) fechaDrawer.textContent = now.toLocaleDateString('es-PE', opts);
     
-    document.getElementById('fechaDia').value = getLocalDateString();
+    const fechaDia = document.getElementById('fechaDia');
+    if (fechaDia) fechaDia.value = getLocalDateString();
+    
     actualizarBadge();
     
+    // Auto-refresh cada 15 segundos
     setInterval(() => {
-        if (document.getElementById('page-hoy').classList.contains('active')) cargarVentasHoy();
-        if (document.getElementById('page-historial').classList.contains('active') && fechaHistorialActual) buscarHistorialPorFecha(fechaHistorialActual);
+        const pageHoy = document.getElementById('page-hoy');
+        if (pageHoy && pageHoy.classList.contains('active')) {
+            cargarVentasHoy();
+        }
+        const pageHistorial = document.getElementById('page-historial');
+        if (pageHistorial && pageHistorial.classList.contains('active') && fechaHistorialActual) {
+            buscarHistorialPorFecha(fechaHistorialActual);
+        }
     }, 15000);
     
     cargarVentasHoy();
     
-    document.getElementById('searchHoy').addEventListener('input', (e) => buscarEnVentasHoy(e.target.value));
-    document.getElementById('searchHistorial').addEventListener('input', (e) => buscarEnHistorial(e.target.value));
-    document.getElementById('clearSearchHoy').addEventListener('click', () => resetSearchHoy());
-    document.getElementById('clearSearchHistorial').addEventListener('click', () => resetSearchHistorial());
+    const searchHoy = document.getElementById('searchHoy');
+    if (searchHoy) searchHoy.addEventListener('input', (e) => buscarEnVentasHoy(e.target.value));
+    
+    const searchHistorial = document.getElementById('searchHistorial');
+    if (searchHistorial) searchHistorial.addEventListener('input', (e) => buscarEnHistorial(e.target.value));
+    
+    const clearSearchHoy = document.getElementById('clearSearchHoy');
+    if (clearSearchHoy) clearSearchHoy.addEventListener('click', () => resetSearchHoy());
+    
+    const clearSearchHistorial = document.getElementById('clearSearchHistorial');
+    if (clearSearchHistorial) clearSearchHistorial.addEventListener('click', () => resetSearchHistorial());
+    
+    // ✅ INICIALIZAR CÁLCULO DEL TOTAL
+    initCalculoTotal();
     
     setReporte('diario');
 });
