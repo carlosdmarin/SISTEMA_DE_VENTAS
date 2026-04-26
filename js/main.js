@@ -380,14 +380,25 @@ function setReporte(tipo) {
     reporteActual = tipo;
     
     document.querySelectorAll('.btn-report').forEach(btn => btn.classList.remove('active'));
-    if (event && event.target) event.target.classList.add('active');
+    // 🔴 FIX: Verificar que event existe y tiene target
+    if (typeof event !== 'undefined' && event && event.target) {
+        event.target.classList.add('active');
+    } else {
+        // Si no hay event (carga inicial), activar el botón correspondiente
+        const btnActivo = document.querySelector(`.btn-report[onclick*="${tipo}"]`);
+        if (btnActivo) btnActivo.classList.add('active');
+    }
     
     const selectorDiv = document.getElementById('selectorFecha');
-    if (tipo === 'diario') selectorDiv.innerHTML = '<input type="date" id="fechaReporte" class="fecha-input">';
-    else if (tipo === 'semanal') selectorDiv.innerHTML = '<input type="week" id="fechaReporte" class="fecha-input">';
-    else selectorDiv.innerHTML = '<input type="month" id="fechaReporte" class="fecha-input">';
+    if (selectorDiv) {
+        if (tipo === 'diario') selectorDiv.innerHTML = '<input type="date" id="fechaReporte" class="fecha-input">';
+        else if (tipo === 'semanal') selectorDiv.innerHTML = '<input type="week" id="fechaReporte" class="fecha-input">';
+        else selectorDiv.innerHTML = '<input type="month" id="fechaReporte" class="fecha-input">';
+        
+        const fechaReporte = document.getElementById('fechaReporte');
+        if (fechaReporte) fechaReporte.value = getLocalDateString();
+    }
     
-    document.getElementById('fechaReporte').value = getLocalDateString();
     generarVistaPrevia();
 }
 
