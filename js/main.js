@@ -444,13 +444,13 @@ function setQuick(opt) {
 function setReporte(tipo) {
     reporteActual = tipo;
     
-    document.querySelectorAll('.btn-report').forEach(btn => btn.classList.remove('active'));
+    const botonesReporte = document.querySelectorAll('.btn-report');
+    if (botonesReporte.length > 0) {
+        botonesReporte.forEach(btn => btn.classList.remove('active'));
+    }
     
-    // FIX: Verificar si event existe (para evitar error en carga inicial)
-    if (typeof event !== 'undefined' && event && event.target) {
-        event.target.classList.add('active');
-    } else {
-        // Buscar el botón correspondiente y activarlo
+    // Activar el botón correcto según el tipo
+    setTimeout(function() {
         const botones = document.querySelectorAll('.btn-report');
         for (let i = 0; i < botones.length; i++) {
             const btn = botones[i];
@@ -462,7 +462,7 @@ function setReporte(tipo) {
                 break;
             }
         }
-    }
+    }, 100);
     
     const selectorDiv = document.getElementById('selectorFecha');
     if (selectorDiv) {
@@ -695,11 +695,18 @@ function initCalculoTotal() {
     const totalSpan = document.getElementById('totalMostrado');
     
     if (kilosInput && totalSpan) {
-        kilosInput.addEventListener('input', function() {
+        // Eliminar event listeners anteriores para evitar duplicados
+        const newKilosInput = kilosInput.cloneNode(true);
+        kilosInput.parentNode.replaceChild(newKilosInput, kilosInput);
+        
+        newKilosInput.addEventListener('input', function() {
             const kilos = parseFloat(this.value) || 0;
             const total = kilos * 4.00;
             totalSpan.textContent = total.toFixed(2);
         });
+        
+        // Actualizar referencia global
+        document.getElementById('kilos');
     }
 }
 
@@ -745,7 +752,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (clearSearchHistorial) clearSearchHistorial.addEventListener('click', () => resetSearchHistorial());
     
     // ✅ INICIALIZAR CÁLCULO DEL TOTAL
-    initCalculoTotal();
+    setTimeout(function() {
+        initCalculoTotal();
+    }, 500);
     
     setReporte('diario');
 });
