@@ -13,17 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ==========================================
-// CONEXIÓN DIRECTA A SUPABASE (PostgreSQL)
+// CONEXIÓN DIRECTA A SUPABASE CON SSL
 // ==========================================
 
-// Variables de entorno de Render
-$db_host = getenv('SUPABASE_HOST') ?: 'aws-0-us-east-1.pooler.supabase.com';
+$db_host = getenv('SUPABASE_HOST') ?: 'aws-1-us-east-2.pooler.supabase.com';
 $db_port = getenv('SUPABASE_PORT') ?: '6543';
-$db_name = getenv('SUPABASE_DB') ?: 'postgres';
-$db_user = getenv('SUPABASE_USER') ?: 'postgres.your-project-ref';
-$db_pass = getenv('SUPABASE_PASSWORD') ?: 'your-password';
+$db_name = getenv('SUPABASE_DB') ?: 'lavasoft_db';
+$db_user = getenv('SUPABASE_USER') ?: 'postgres';
+$db_pass = getenv('SUPABASE_PASSWORD') ?: '';
 
-// Intentar conexión PostgreSQL
+// Forzar SSL en la conexión
 try {
     $pdo = new PDO(
         "pgsql:host=$db_host;port=$db_port;dbname=$db_name;sslmode=require",
