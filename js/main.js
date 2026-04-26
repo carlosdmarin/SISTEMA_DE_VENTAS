@@ -3,8 +3,7 @@
 // ============================================
 
 // Cambia esto según tu backend (si usas API)
-const API = "http://localhost/SISTEMA_DE_VENTAS/api/ventas.php";
-
+const API = window.location.origin + "/api/ventas.php";
 // Variables globales
 let ventasHoyOriginal = [];
 let ventasHistorialOriginal = [];
