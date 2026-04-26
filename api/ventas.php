@@ -2,30 +2,38 @@
 date_default_timezone_set('America/Lima');
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
-$supabase_url = getenv('SUPABASE_URL');
-$supabase_key = getenv('SUPABASE_KEY');
-
-if (!$supabase_url || !$supabase_key) {
-    echo json_encode(["error" => "Faltan variables"]);
-    exit;
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
 }
+
+// Usar las mismas variables que funcionaron en test.php
+$supabase_url = 'https://ownjmawswuygfhltlzts.supabase.co';
+$supabase_key = 'sb_publishable_5ceuA5WElQ_dB31Oddj1bg_Pa-7uFZz';
 
 function supabase($endpoint, $method = 'GET', $data = null) {
     global $supabase_url, $supabase_key;
-    $ch = curl_init("$supabase_url/rest/v1/$endpoint");
+    
+    $url = $supabase_url . '/rest/v1/' . $endpoint;
+    $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "apikey: $supabase_key",
-        "Authorization: Bearer $supabase_key",
-        "Content-Type: application/json"
+        'apikey: ' . $supabase_key,
+        'Authorization: Bearer ' . $supabase_key,
+        'Content-Type: application/json'
     ]);
-    if ($data) {
+    
+    if ($data && ($method === 'POST' || $method === 'PUT')) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
     }
+    
     $response = curl_exec($ch);
     curl_close($ch);
+    
     return json_decode($response, true);
 }
 
@@ -34,20 +42,20 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     if (isset($_GET['hoy'])) {
         $hoy = date('Y-m-d');
-        $result = supabase("ventas?fecha_registro=gte." . $hoy . "&fecha_registro=lt." . date('Y-m-d', strtotime('+1 day')));
+        $result = supabase("ventas?select=*&fecha_registro=gte." . $hoy . "&fecha_registro=lt." . date('Y-m-d', strtotime('+1 day')));
         echo json_encode($result ?: []);
-    } 
-    elseif (isset($_GET['desde']) && isset($_GET['hasta'])) {
-        $desde = $_GET['desde'];
-        $hasta = $_GET['hasta'];
-        $result = supabase("ventas?fecha_registro=gte." . $desde . "&fecha_registro=lte." . $hasta);
-        echo json_encode($result ?: []);
-    } 
-    else {
-        echo json_encode([]);
+        exit;
     }
-} 
-elseif ($method === 'POST') {
+    if (isset($_GET['desde']) && isset($_GET['hasta'])) {
+        $result = supabase("ventas?select=*&fecha_registro=gte." . $_GET['desde'] . "&fecha_registro=lte." . $_GET['hasta']);
+        echo json_encode($result ?: []);
+        exit;
+    }
+    echo json_encode([]);
+    exit;
+}
+
+if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     $venta = [
         'nombre_cliente' => $input['nombreCliente'],
@@ -57,9 +65,18 @@ elseif ($method === 'POST') {
         'fecha_registro' => date('Y-m-d H:i:s')
     ];
     $result = supabase("ventas", "POST", $venta);
-    echo json_encode(['success' => !isset($result['error']), 'id' => $result[0]['id'] ?? null]);
-} 
-else {
-    echo json_encode(['error' => 'Método no soportado']);
+    echo json_encode(['success' => true, 'id' => $result[0]['id'] ?? null]);
+    exit;
 }
+
+if ($method === 'PUT') {
+    $path = $_SERVER['PATH_INFO'] ?? '';
+    if (preg_match('/^\/(\d+)\/pagar$/', $path, $matches)) {
+        $result = supabase("ventas?id_venta=eq." . $matches[1], "PUT", ['estado' => 'pagado']);
+        echo json_encode(['success' => true]);
+        exit;
+    }
+}
+
+echo json_encode(['error' => 'Método no permitido']);
 ?>
