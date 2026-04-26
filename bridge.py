@@ -2,61 +2,35 @@
 import sys
 import json
 import os
-from supabase import create_client
 
-# Configuración desde variables de entorno
+# ESCRIBIR LOG PARA VERIFICAR QUE PYTHON CORRE
+with open('/tmp/python_debug.log', 'w') as f:
+    f.write("Python script ejecutado\n")
+    f.write(f"Argumentos: {sys.argv}\n")
+
+try:
+    from supabase import create_client
+    with open('/tmp/python_debug.log', 'a') as f:
+        f.write("Supabase importado correctamente\n")
+except Exception as e:
+    with open('/tmp/python_debug.log', 'a') as f:
+        f.write(f"Error importando supabase: {str(e)}\n")
+    print(json.dumps({'error': f'Error importando supabase: {str(e)}'}))
+    sys.exit(1)
+
+# Configuración
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
+
+with open('/tmp/python_debug.log', 'a') as f:
+    f.write(f"SUPABASE_URL: {SUPABASE_URL}\n")
+    f.write(f"SUPABASE_KEY: {SUPABASE_KEY[:20] if SUPABASE_KEY else 'None'}...\n")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print(json.dumps({'error': 'Faltan variables SUPABASE_URL o SUPABASE_KEY'}))
     sys.exit(1)
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-def get_today(fecha):
-    try:
-        result = supabase.table('ventas')\
-            .select('*')\
-            .gte('fecha_registro', f'{fecha} 00:00:00')\
-            .lte('fecha_registro', f'{fecha} 23:59:59')\
-            .execute()
-        return result.data if result.data else []
-    except Exception as e:
-        return {'error': str(e)}
-
-def get_by_date_range(desde, hasta):
-    try:
-        result = supabase.table('ventas')\
-            .select('*')\
-            .gte('fecha_registro', f'{desde} 00:00:00')\
-            .lte('fecha_registro', f'{hasta} 23:59:59')\
-            .order('fecha_registro', desc=True)\
-            .execute()
-        return result.data if result.data else []
-    except Exception as e:
-        return {'error': str(e)}
-
-def create_venta(venta):
-    try:
-        result = supabase.table('ventas').insert(venta).execute()
-        if result.data and len(result.data) > 0:
-            return {'success': True, 'id_venta': result.data[0]['id_venta']}
-        return {'success': False, 'error': 'No se pudo insertar'}
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-def pagar_venta(id_venta):
-    try:
-        result = supabase.table('ventas')\
-            .update({'estado': 'cancelado'})\
-            .eq('id_venta', id_venta)\
-            .execute()
-        if result.data and len(result.data) > 0:
-            return {'success': True}
-        return {'success': False}
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
 
 def main():
     try:
@@ -70,21 +44,17 @@ def main():
         
         if action == 'get_today':
             fecha = data.get('fecha')
-            result = get_today(fecha)
-        elif action == 'get_by_date_range':
-            desde = data.get('desde')
-            hasta = data.get('hasta')
-            result = get_by_date_range(desde, hasta)
+            result = supabase.table('ventas').select('*').execute()
+            print(json.dumps(result.data if result.data else []))
         elif action == 'create':
             venta = data.get('venta', {})
-            result = create_venta(venta)
-        elif action == 'pay':
-            id_venta = data.get('id')
-            result = pagar_venta(id_venta)
+            result = supabase.table('ventas').insert(venta).execute()
+            if result.data:
+                print(json.dumps({'success': True, 'id_venta': result.data[0]['id_venta']}))
+            else:
+                print(json.dumps({'success': False, 'error': 'No se insertó'}))
         else:
-            result = {'error': f'Acción desconocida: {action}'}
-        
-        print(json.dumps(result))
+            print(json.dumps({'error': f'Acción desconocida: {action}'}))
     except Exception as e:
         print(json.dumps({'error': str(e)}))
 
