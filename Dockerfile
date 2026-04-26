@@ -1,23 +1,28 @@
 FROM php:8.2-apache
 
-# Instalar dependencias y extensión PostgreSQL (por si acaso)
+# Instalar dependencias
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     python3 \
     python3-pip \
-    && docker-php-ext-install pdo pdo_pgsql pgsql
+    && rm -rf /var/lib/apt/lists/*
 
-# Instalar la librería de Supabase para Python
-RUN pip3 install supabase --break-system-packages
+# Instalar extensiones PHP
+RUN docker-php-ext-install pdo pdo_pgsql
+
+# Instalar librerías Python (sin --break-system-packages)
+RUN pip3 install supabase pytz
 
 # Habilitar mod_rewrite
 RUN a2enmod rewrite
+
+# Configurar zona horaria
+RUN echo "date.timezone = America/Lima" >> /usr/local/etc/php/conf.d/timezone.ini
 
 # Copiar archivos
 COPY . /var/www/html/
 
 # Configurar permisos
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+RUN chown -R www-data:www-data /var/www/html && chmod -R 755 /var/www/html
 
 EXPOSE 80
