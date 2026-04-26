@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ==========================================
-// CONEXIÓN DIRECTA A SUPABASE CON SSL
+// CONEXIÓN A SUPABASE CON SSL OBLIGATORIO
 // ==========================================
 
 $db_host = getenv('SUPABASE_HOST') ?: 'aws-1-us-east-2.pooler.supabase.com';
@@ -22,53 +22,67 @@ $db_name = getenv('SUPABASE_DB') ?: 'lavasoft_db';
 $db_user = getenv('SUPABASE_USER') ?: 'postgres';
 $db_pass = getenv('SUPABASE_PASSWORD') ?: '';
 
-// Forzar SSL en la conexión
-try {
-    $pdo = new PDO(
-        "pgsql:host=$db_host;port=$db_port;dbname=$db_name;sslmode=require",
-        $db_user,
-        $db_pass,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-} catch (PDOException $e) {
-    echo json_encode(['error' => 'Conexión fallida: ' . $e->getMessage()]);
+// Verificar que tenemos todos los datos
+if (empty($db_host) || empty($db_user) || empty($db_pass)) {
+    echo json_encode(['error' => 'Faltan variables de entorno de Supabase']);
     exit();
+}
+
+// Intentar diferentes opciones de conexión
+$connection_string = "pgsql:host=$db_host;port=$db_port;dbname=$db_name;sslmode=require";
+
+try {
+    $pdo = new PDO($connection_string, $db_user, $db_pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_TIMEOUT => 30,
+        PDO::ATTR_PERSISTENT => false
+    ]);
+} catch (PDOException $e) {
+    // Si falla con sslmode=require, intentar sin SSL
+    try {
+        $connection_string = "pgsql:host=$db_host;port=$db_port;dbname=$db_name";
+        $pdo = new PDO($connection_string, $db_user, $db_pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_TIMEOUT => 30
+        ]);
+    } catch (PDOException $e2) {
+        echo json_encode(['error' => 'Conexión fallida: ' . $e2->getMessage()]);
+        exit();
+    }
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 // ==========================================
-// GET: Ventas de hoy o por rango
+// GET: Ventas de hoy
 // ==========================================
-if ($method === 'GET') {
-    if (isset($_GET['hoy'])) {
-        $hoy = date('Y-m-d');
-        $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
-                FROM ventas 
-                WHERE DATE(fecha_registro) = :hoy 
-                ORDER BY fecha_registro DESC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':hoy' => $hoy]);
-        $ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode($ventas);
-        exit;
-    }
-    
-    if (isset($_GET['desde']) && isset($_GET['hasta'])) {
-        $desde = $_GET['desde'];
-        $hasta = $_GET['hasta'];
-        $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
-                FROM ventas 
-                WHERE DATE(fecha_registro) BETWEEN :desde AND :hasta 
-                ORDER BY fecha_registro DESC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':desde' => $desde, ':hasta' => $hasta]);
-        $ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode($ventas);
-        exit;
-    }
-    
-    echo json_encode([]);
+if ($method === 'GET' && isset($_GET['hoy'])) {
+    $hoy = date('Y-m-d');
+    $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
+            FROM ventas 
+            WHERE DATE(fecha_registro) = :hoy 
+            ORDER BY fecha_registro DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':hoy' => $hoy]);
+    $ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode($ventas);
+    exit;
+}
+
+// ==========================================
+// GET: Historial por fechas
+// ==========================================
+if ($method === 'GET' && isset($_GET['desde']) && isset($_GET['hasta'])) {
+    $desde = $_GET['desde'];
+    $hasta = $_GET['hasta'];
+    $sql = "SELECT id_venta, nombre_cliente, kilos, total, estado, fecha_registro 
+            FROM ventas 
+            WHERE DATE(fecha_registro) BETWEEN :desde AND :hasta 
+            ORDER BY fecha_registro DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':desde' => $desde, ':hasta' => $hasta]);
+    $ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode($ventas);
     exit;
 }
 
