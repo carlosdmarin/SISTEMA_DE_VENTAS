@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Forzar instalación de paquetes Python (con --break-system-packages)
-RUN pip3 install supabase pytz --break-system-packages
+# Instalar supabase (forzado)
+RUN pip3 install supabase --break-system-packages
 
 # Instalar extensión PostgreSQL para PHP
 RUN docker-php-ext-install pdo pdo_pgsql
@@ -25,4 +25,5 @@ COPY . /var/www/html/
 # Configurar permisos
 RUN chown -R www-data:www-data /var/www/html && chmod -R 755 /var/www/html
 
+# Exponer puerto
 EXPOSE 80
