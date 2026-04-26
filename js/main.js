@@ -1,17 +1,21 @@
 // ============================================
-// CONFIGURACIÓN
+// CONFIGURACIÓN - CAMBIAR CUANDO SUBAS A RENDER
 // ============================================
 
-// Cambia esto según tu backend (si usas API)
+// PARA PRODUCCIÓN en RENDER:
 const API = window.location.origin + "/api/ventas.php";
+
+// PARA PRUEBA LOCAL (descomenta esta y comenta la de arriba cuando estés en local)
+// const API = "http://localhost/SISTEMA_DE_VENTAS/api/ventas.php";
+
 // Variables globales
 let ventasHoyOriginal = [];
 let ventasHistorialOriginal = [];
 let reporteActual = 'diario';
-let fechaHistorialActual = ''; // Guardar la fecha actual del historial
+let fechaHistorialActual = '';
 
 // ============================================
-// FUNCIONES DE FECHA LOCAL (ARREGLADO)
+// FUNCIONES DE FECHA LOCAL
 // ============================================
 
 function getLocalDateString(date = new Date()) {
@@ -19,20 +23,6 @@ function getLocalDateString(date = new Date()) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-}
-
-function getLocalDateTime(date = new Date()) {
-    return date.toLocaleTimeString('es-PE', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-    });
-}
-
-function parseLocalDate(dateString) {
-    // Recibe "YYYY-MM-DD" y devuelve fecha en hora local
-    const [year, month, day] = dateString.split('-');
-    return new Date(year, month - 1, day);
 }
 
 // ============================================
@@ -64,21 +54,13 @@ function goTo(page) {
         cargarVentasHoy();
     }
     if (page === 'ventas') {
-        const nombreInput = document.getElementById('nombre');
-        const kilosInput = document.getElementById('kilos');
-        const totalSpan = document.getElementById('totalMostrado');
-        const estadoSelect = document.getElementById('estado');
-        
-        if (nombreInput) nombreInput.value = '';
-        if (kilosInput) kilosInput.value = '';
-        if (totalSpan) totalSpan.textContent = '0.00';
-        if (estadoSelect) estadoSelect.value = 'pendiente';
+        document.getElementById('nombre').value = '';
+        document.getElementById('kilos').value = '';
+        document.getElementById('totalMostrado').textContent = '0.00';
+        document.getElementById('estado').value = 'pendiente';
     }
-    if (page === 'historial') {
-        // Si hay una fecha guardada, recargar el historial
-        if (fechaHistorialActual) {
-            buscarHistorialPorFecha(fechaHistorialActual);
-        }
+    if (page === 'historial' && fechaHistorialActual) {
+        buscarHistorialPorFecha(fechaHistorialActual);
     }
     if (page === 'reportes') {
         setReporte('diario');
@@ -86,54 +68,28 @@ function goTo(page) {
 }
 
 // ============================================
-// FECHA Y BADGE
+// ACTUALIZAR BADGE
 // ============================================
-
-function updateDateDisplay() {
-    const now = new Date();
-    const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    const fechaElem = document.getElementById('drawer-fecha');
-    if (fechaElem) fechaElem.textContent = now.toLocaleDateString('es-PE', opts);
-    actualizarBadge();
-}
 
 async function actualizarBadge() {
     try {
         const hoy = getLocalDateString();
         const res = await fetch(`${API}?desde=${hoy}&hasta=${hoy}`);
-        if (!res.ok) throw new Error('Error');
         const ventas = await res.json();
         
-        if (!Array.isArray(ventas)) {
-            document.getElementById('topbar-badge').innerHTML = `S/ 0.00`;
-            return;
-        }
-        
         let total = 0;
-        ventas.forEach(v => {
-            if (v.estado === 'cancelado') {
-                total += parseFloat(v.total);
-            }
-        });
-        
+        if (Array.isArray(ventas)) {
+            ventas.forEach(v => {
+                if (v.estado === 'cancelado') {
+                    total += parseFloat(v.total);
+                }
+            });
+        }
         document.getElementById('topbar-badge').innerHTML = `💰 S/ ${total.toFixed(2)}`;
     } catch (error) {
-        console.error('Error al actualizar badge:', error);
+        console.error('Error:', error);
         document.getElementById('topbar-badge').innerHTML = `S/ 0.00`;
     }
-}
-
-// ============================================
-// CALCULAR TOTAL
-// ============================================
-
-const kilosInput = document.getElementById('kilos');
-if (kilosInput) {
-    kilosInput.addEventListener('input', function() {
-        const total = (parseFloat(this.value) || 0) * 4;
-        const totalSpan = document.getElementById('totalMostrado');
-        if (totalSpan) totalSpan.textContent = total.toFixed(2);
-    });
 }
 
 // ============================================
@@ -143,26 +99,15 @@ if (kilosInput) {
 async function guardarVenta() {
     const nombre = document.getElementById('nombre').value.trim();
     const kilos = parseFloat(document.getElementById('kilos').value);
-    const estadoSelect = document.getElementById('estado');
-    let estado = estadoSelect ? estadoSelect.value : 'pendiente';
+    let estado = document.getElementById('estado').value;
     
     if (estado === 'pagado') estado = 'cancelado';
     
     if (!nombre) {
-        return Swal.fire({
-            icon: 'warning',
-            title: '¡Falta el nombre!',
-            text: 'Escribe el nombre del cliente',
-            confirmButtonColor: '#3182ce'
-        });
+        return Swal.fire({ icon: 'warning', title: '¡Falta el nombre!', text: 'Escribe el nombre del cliente', confirmButtonColor: '#3182ce' });
     }
     if (!kilos || kilos <= 0) {
-        return Swal.fire({
-            icon: 'warning',
-            title: '¡Kilos inválidos!',
-            text: 'Ingresa los kilos de ropa correctamente',
-            confirmButtonColor: '#3182ce'
-        });
+        return Swal.fire({ icon: 'warning', title: '¡Kilos inválidos!', text: 'Ingresa los kilos de ropa correctamente', confirmButtonColor: '#3182ce' });
     }
     
     const venta = {
@@ -182,14 +127,7 @@ async function guardarVenta() {
         const data = await response.json();
         
         if (data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: '¡Venta guardada!',
-                html: `<b>${nombre}</b> · ${kilos} kg · <b>S/ ${(kilos * 4).toFixed(2)}</b>`,
-                confirmButtonColor: '#3182ce',
-                timer: 2000,
-                showConfirmButton: false
-            });
+            Swal.fire({ icon: 'success', title: '¡Venta guardada!', html: `<b>${nombre}</b> · ${kilos} kg · <b>S/ ${(kilos * 4).toFixed(2)}</b>`, confirmButtonColor: '#3182ce', timer: 2000, showConfirmButton: false });
             
             document.getElementById('nombre').value = '';
             document.getElementById('kilos').value = '';
@@ -198,7 +136,6 @@ async function guardarVenta() {
             
             actualizarBadge();
             
-            // Actualizar vistas si están activas
             if (document.getElementById('page-hoy').classList.contains('active')) {
                 cargarVentasHoy();
             }
@@ -210,21 +147,12 @@ async function guardarVenta() {
         }
     } catch (error) {
         console.error('Error:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de conexión',
-            text: 'No se pudo guardar la venta. Verifica que el servidor esté corriendo.',
-            confirmButtonColor: '#3182ce'
-        });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo guardar la venta.', confirmButtonColor: '#3182ce' });
     }
 }
 
 // ============================================
-// BUILD CARD HTML (CON HORA LOCAL FIX)
-// ============================================
-
-// ============================================
-// BUILD CARD HTML (CON HORA LOCAL CORRECTA - SIN UTC)
+// BUILD CARD (con hora correcta)
 // ============================================
 
 function buildCard(v) {
@@ -235,26 +163,14 @@ function buildCard(v) {
     const nombreCompleto = v.nombre_cliente || v.nombreCliente || 'Cliente';
     const initials = nombreCompleto.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
     
-    // ========== CORRECCIÓN DEFINITIVA: Extraer hora directamente del string ==========
     let hora = '--:--';
-    
-    if (v.fecha_registro) {
-        try {
-            // La fecha viene como "2026-04-26 13:15:00" desde MySQL
-            // Extraemos SOLO la hora sin conversión UTC
-            if (typeof v.fecha_registro === 'string' && v.fecha_registro.includes(' ')) {
-                const partes = v.fecha_registro.split(' ');
-                if (partes.length >= 2) {
-                    const horaParte = partes[1]; // "13:15:00"
-                    const horaMinutos = horaParte.split(':');
-                    if (horaMinutos.length >= 2) {
-                        hora = `${horaMinutos[0]}:${horaMinutos[1]}`; // "13:15"
-                    }
-                }
+    if (v.fecha_registro && typeof v.fecha_registro === 'string' && v.fecha_registro.includes(' ')) {
+        const horaParte = v.fecha_registro.split(' ')[1];
+        if (horaParte) {
+            const hm = horaParte.split(':');
+            if (hm.length >= 2) {
+                hora = `${hm[0]}:${hm[1]}`;
             }
-        } catch(e) {
-            console.error('Error parseando hora:', e);
-            hora = '--:--';
         }
     }
     
@@ -286,8 +202,9 @@ function buildCard(v) {
             </div>
         </div>`;
 }
+
 // ============================================
-// CARGAR VENTAS DE HOY (FIX: FILTRAR POR FECHA LOCAL)
+// CARGAR VENTAS DE HOY
 // ============================================
 
 async function cargarVentasHoy() {
@@ -299,12 +216,10 @@ async function cargarVentasHoy() {
     try {
         const hoy = getLocalDateString();
         const res = await fetch(`${API}?desde=${hoy}&hasta=${hoy}&t=${Date.now()}`);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        
         const ventas = await res.json();
         
         if (!Array.isArray(ventas)) {
-            listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error: Respuesta inválida del servidor</p></div>`;
+            listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error: Respuesta inválida</p></div>`;
             return;
         }
         
@@ -325,80 +240,80 @@ async function cargarVentasHoy() {
         }
         
         if (!ventas.length) {
-            listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-soap"></i></div><p>Sin ventas por hoy</p><small>Toca el <strong>+</strong> para registrar la primera del día</small></div>`;
+            listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-soap"></i></div><p>Sin ventas por hoy</p><small>Toca el <strong>+</strong> para registrar la primera</small></div>`;
             return;
         }
         
         listaVentas.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-        
-        const searchInput = document.getElementById('searchHoy');
-        if (searchInput) searchInput.value = '';
-        const clearBtn = document.getElementById('clearSearchHoy');
-        if (clearBtn) clearBtn.style.display = 'none';
+        document.getElementById('searchHoy').value = '';
+        document.getElementById('clearSearchHoy').style.display = 'none';
         
     } catch (error) {
-        console.error('Error en cargarVentasHoy:', error);
-        listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-plug"></i></div><p>Sin conexión al servidor</p><small>Error: ${error.message}</small></div>`;
+        console.error('Error:', error);
+        listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-plug"></i></div><p>Sin conexión al servidor</p></div>`;
     }
 }
 
 // ============================================
-// BÚSQUEDA EN VENTAS DE HOY
+// BUSCAR HISTORIAL
 // ============================================
 
-function buscarEnVentasHoy(termino) {
-    const searchTerm = termino.toLowerCase().trim();
-    const clearBtn = document.getElementById('clearSearchHoy');
-    
-    if (searchTerm === '') {
-        if (clearBtn) clearBtn.style.display = 'none';
-        mostrarVentasHoy(ventasHoyOriginal);
-        actualizarStatsHoy(ventasHoyOriginal);
-        return;
+async function buscarHistorial() {
+    const fechaDia = document.getElementById('fechaDia');
+    if (!fechaDia || !fechaDia.value) {
+        return Swal.fire({ icon: 'info', title: 'Elige una fecha', text: 'Selecciona una fecha para ver el historial', confirmButtonColor: '#3182ce' });
     }
     
-    if (clearBtn) clearBtn.style.display = 'flex';
-    const resultados = ventasHoyOriginal.filter(v => 
-        (v.nombre_cliente || v.nombreCliente).toLowerCase().includes(searchTerm)
-    );
+    fechaHistorialActual = fechaDia.value;
+    await buscarHistorialPorFecha(fechaHistorialActual);
+}
+
+async function buscarHistorialPorFecha(fecha) {
+    const listaHistorial = document.getElementById('listaHistorial');
+    const histSummary = document.getElementById('histSummary');
     
-    mostrarVentasHoy(resultados);
-    actualizarStatsHoy(resultados);
-}
-
-function mostrarVentasHoy(ventas) {
-    const listaVentas = document.getElementById('listaVentas');
-    if (!listaVentas) return;
+    if (listaHistorial) listaHistorial.innerHTML = '<div class="loader"><div class="spinner"></div> Buscando…</div>';
+    if (histSummary) histSummary.style.display = 'none';
     
-    if (!ventas.length) {
-        listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-search"></i></div><p>No se encontraron resultados</p><small>Prueba con otro nombre</small></div>`;
-        return;
-    }
-    listaVentas.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-}
-
-function actualizarStatsHoy(ventas) {
-    const total = ventas.reduce((a, v) => a + parseFloat(v.total), 0);
-    const kilos = ventas.reduce((a, v) => a + parseFloat(v.kilos), 0);
-    const stats = document.getElementById('statsHoy');
-    if (stats) {
-        const statVals = stats.querySelectorAll('.stat-val');
-        if (statVals[0]) statVals[0].textContent = ventas.length;
-        if (statVals[1]) statVals[1].textContent = kilos.toFixed(1);
-        if (statVals[2]) statVals[2].innerHTML = 'S/ ' + total.toFixed(2);
-    }
-}
-
-function resetSearchHoy() {
-    const searchInput = document.getElementById('searchHoy');
-    if (searchInput) {
-        searchInput.value = '';
-        buscarEnVentasHoy('');
+    try {
+        const res = await fetch(`${API}?desde=${fecha}&hasta=${fecha}&t=${Date.now()}`);
+        const ventas = await res.json();
+        
+        if (!Array.isArray(ventas)) {
+            if (listaHistorial) listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error en la respuesta</p></div>`;
+            return;
+        }
+        
+        ventasHistorialOriginal = ventas;
+        
+        const totalV = ventas.length;
+        const totalK = ventas.reduce((a, v) => a + parseFloat(v.kilos), 0);
+        const totalI = ventas.reduce((a, v) => a + parseFloat(v.total), 0);
+        const pagados = ventas.filter(v => v.estado === 'cancelado').length;
+        
+        document.getElementById('hTotalVentas').textContent = totalV;
+        document.getElementById('hTotalKilos').textContent = totalK.toFixed(1);
+        document.getElementById('hTotalIngreso').textContent = 'S/ ' + totalI.toFixed(2);
+        document.getElementById('hPagados').textContent = pagados;
+        histSummary.style.display = 'grid';
+        
+        if (!ventas.length) {
+            listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-calendar-xmark"></i></div><p>Sin ventas en esa fecha</p></div>`;
+            return;
+        }
+        
+        listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
+        document.getElementById('searchHistorial').value = '';
+        document.getElementById('clearSearchHistorial').style.display = 'none';
+        
+    } catch (error) {
+        console.error('Error:', error);
+        listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-plug"></i></div><p>Error al buscar</p></div>`;
     }
 }
 
 // ============================================
-// PAGAR VENTA (CON ACTUALIZACIÓN AUTOMÁTICA)
+// PAGAR VENTA
 // ============================================
 
 async function pagarVenta(id, nombre) {
@@ -420,144 +335,24 @@ async function pagarVenta(id, nombre) {
             
             if (data.success) {
                 Swal.fire({ icon: 'success', title: '¡Pagado!', timer: 1500, showConfirmButton: false });
-                
-                // Actualizar todas las vistas activas
                 cargarVentasHoy();
                 actualizarBadge();
-                
-                // Si el historial está abierto, recargarlo también
                 if (document.getElementById('page-historial').classList.contains('active') && fechaHistorialActual) {
                     await buscarHistorialPorFecha(fechaHistorialActual);
                 }
-                
-                // Si la página de reportes está activa, actualizar vista previa
                 if (document.getElementById('page-reportes').classList.contains('active')) {
                     generarVistaPrevia();
                 }
-            } else {
-                throw new Error(data.error || 'Error al pagar');
             }
         } catch (error) {
-            console.error('Error al pagar:', error);
-            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo marcar como pagado', confirmButtonColor: '#3182ce' });
+            console.error('Error:', error);
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo marcar como pagado' });
         }
     }
 }
 
 // ============================================
-// BUSCAR HISTORIAL (MEJORADO)
-// ============================================
-
-async function buscarHistorial() {
-    const fechaDia = document.getElementById('fechaDia');
-    if (!fechaDia || !fechaDia.value) {
-        return Swal.fire({ icon: 'info', title: 'Elige una fecha', text: 'Selecciona una fecha para ver el historial', confirmButtonColor: '#3182ce' });
-    }
-    
-    const fecha = fechaDia.value;
-    fechaHistorialActual = fecha;
-    await buscarHistorialPorFecha(fecha);
-}
-
-async function buscarHistorialPorFecha(fecha) {
-    const listaHistorial = document.getElementById('listaHistorial');
-    const histSummary = document.getElementById('histSummary');
-    
-    if (listaHistorial) listaHistorial.innerHTML = '<div class="loader"><div class="spinner"></div> Buscando…</div>';
-    if (histSummary) histSummary.style.display = 'none';
-    
-    try {
-        const res = await fetch(`${API}?desde=${fecha}&hasta=${fecha}&t=${Date.now()}`);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        
-        const ventas = await res.json();
-        
-        if (!Array.isArray(ventas)) {
-            if (listaHistorial) listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error en la respuesta del servidor</p></div>`;
-            return;
-        }
-        
-        ventasHistorialOriginal = ventas;
-        actualizarResumenHistorial(ventas);
-        
-        if (!ventas.length && listaHistorial) {
-            listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-calendar-xmark"></i></div><p>Sin ventas en esa fecha</p><small>Prueba con otra fecha</small></div>`;
-            return;
-        }
-        
-        if (listaHistorial) listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-        
-        const searchInput = document.getElementById('searchHistorial');
-        if (searchInput) searchInput.value = '';
-        const clearBtn = document.getElementById('clearSearchHistorial');
-        if (clearBtn) clearBtn.style.display = 'none';
-        
-    } catch (error) {
-        console.error('Error en buscarHistorial:', error);
-        if (listaHistorial) listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-plug"></i></div><p>Error al buscar</p><small>Verifica la conexión con el servidor</small></div>`;
-    }
-}
-
-function actualizarResumenHistorial(ventas) {
-    const totalV = ventas.length;
-    const totalK = ventas.reduce((a, v) => a + parseFloat(v.kilos), 0);
-    const totalI = ventas.reduce((a, v) => a + parseFloat(v.total), 0);
-    const pagados = ventas.filter(v => v.estado === 'cancelado').length;
-    
-    const hTotalVentas = document.getElementById('hTotalVentas');
-    const hTotalKilos = document.getElementById('hTotalKilos');
-    const hTotalIngreso = document.getElementById('hTotalIngreso');
-    const hPagados = document.getElementById('hPagados');
-    const histSummary = document.getElementById('histSummary');
-    
-    if (hTotalVentas) hTotalVentas.textContent = totalV;
-    if (hTotalKilos) hTotalKilos.textContent = totalK.toFixed(1);
-    if (hTotalIngreso) hTotalIngreso.textContent = 'S/ ' + totalI.toFixed(2);
-    if (hPagados) hPagados.textContent = pagados;
-    if (histSummary) histSummary.style.display = 'grid';
-}
-
-function mostrarHistorial(ventas) {
-    const listaHistorial = document.getElementById('listaHistorial');
-    if (!listaHistorial) return;
-    
-    if (!ventas.length) {
-        listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-search"></i></div><p>No se encontraron resultados</p><small>Prueba con otro nombre</small></div>`;
-        return;
-    }
-    listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
-}
-
-function buscarEnHistorial(termino) {
-    const searchTerm = termino.toLowerCase().trim();
-    const clearBtn = document.getElementById('clearSearchHistorial');
-    
-    if (searchTerm === '') {
-        if (clearBtn) clearBtn.style.display = 'none';
-        mostrarHistorial(ventasHistorialOriginal);
-        actualizarResumenHistorial(ventasHistorialOriginal);
-        return;
-    }
-    
-    if (clearBtn) clearBtn.style.display = 'flex';
-    const resultados = ventasHistorialOriginal.filter(v => 
-        (v.nombre_cliente || v.nombreCliente).toLowerCase().includes(searchTerm)
-    );
-    
-    mostrarHistorial(resultados);
-    actualizarResumenHistorial(resultados);
-}
-
-function resetSearchHistorial() {
-    const searchInput = document.getElementById('searchHistorial');
-    if (searchInput) {
-        searchInput.value = '';
-        buscarEnHistorial('');
-    }
-}
-
-// ============================================
-// FECHAS RÁPIDAS (FIX: USAR FECHA LOCAL)
+// FECHAS RÁPIDAS
 // ============================================
 
 function setQuick(opt) {
@@ -567,17 +362,12 @@ function setQuick(opt) {
     const today = new Date();
     const y = new Date(today);
     const a = new Date(today);
-    
     y.setDate(today.getDate() - 1);
     a.setDate(today.getDate() - 2);
     
-    if (opt === 'hoy') {
-        fechaDia.value = getLocalDateString(today);
-    } else if (opt === 'ayer') {
-        fechaDia.value = getLocalDateString(y);
-    } else if (opt === 'antier') {
-        fechaDia.value = getLocalDateString(a);
-    }
+    if (opt === 'hoy') fechaDia.value = getLocalDateString(today);
+    else if (opt === 'ayer') fechaDia.value = getLocalDateString(y);
+    else if (opt === 'antier') fechaDia.value = getLocalDateString(a);
     
     buscarHistorial();
 }
@@ -593,17 +383,11 @@ function setReporte(tipo) {
     if (event && event.target) event.target.classList.add('active');
     
     const selectorDiv = document.getElementById('selectorFecha');
-    if (tipo === 'diario') {
-        selectorDiv.innerHTML = '<input type="date" id="fechaReporte" class="fecha-input">';
-    } else if (tipo === 'semanal') {
-        selectorDiv.innerHTML = '<input type="week" id="fechaReporte" class="fecha-input">';
-    } else {
-        selectorDiv.innerHTML = '<input type="month" id="fechaReporte" class="fecha-input">';
-    }
+    if (tipo === 'diario') selectorDiv.innerHTML = '<input type="date" id="fechaReporte" class="fecha-input">';
+    else if (tipo === 'semanal') selectorDiv.innerHTML = '<input type="week" id="fechaReporte" class="fecha-input">';
+    else selectorDiv.innerHTML = '<input type="month" id="fechaReporte" class="fecha-input">';
     
-    const fechaReporte = document.getElementById('fechaReporte');
-    if (fechaReporte) fechaReporte.value = getLocalDateString();
-    
+    document.getElementById('fechaReporte').value = getLocalDateString();
     generarVistaPrevia();
 }
 
@@ -622,10 +406,8 @@ async function generarVistaPrevia() {
             url += `desde=${getLocalDateString(startDate)}&hasta=${getLocalDateString(endDate)}`;
         } else {
             const [year, month] = fechaValue.split('-');
-            const startDate = `${year}-${month}-01`;
             const lastDay = new Date(year, month, 0).getDate();
-            const endDate = `${year}-${month}-${lastDay}`;
-            url += `desde=${startDate}&hasta=${endDate}`;
+            url += `desde=${year}-${month}-01&hasta=${year}-${month}-${lastDay}`;
         }
         
         const res = await fetch(url);
@@ -652,7 +434,7 @@ async function generarVistaPrevia() {
             </div>
             <hr style="margin: 12px 0">
             <div style="font-size: 13px; max-height: 200px; overflow-y: auto">
-                ${ventas.slice(0, 10).map(v => `<div>• ${v.fecha_registro?.split('T')[0] || v.fecha} | ${v.nombre_cliente} | S/ ${parseFloat(v.total).toFixed(2)}</div>`).join('')}
+                ${ventas.slice(0, 10).map(v => `<div>• ${(v.fecha_registro || '').split(' ')[0] || v.fecha} | ${v.nombre_cliente} | S/ ${parseFloat(v.total).toFixed(2)}</div>`).join('')}
                 ${ventas.length > 10 ? `<div style="color: gray; margin-top: 8px">... y ${ventas.length - 10} más</div>` : ''}
             </div>
         `;
@@ -684,10 +466,8 @@ async function descargarReporte() {
         } else {
             periodo = fechaValue;
             const [year, month] = fechaValue.split('-');
-            const startDate = `${year}-${month}-01`;
             const lastDay = new Date(year, month, 0).getDate();
-            const endDate = `${year}-${month}-${lastDay}`;
-            url += `desde=${startDate}&hasta=${endDate}`;
+            url += `desde=${year}-${month}-01&hasta=${year}-${month}-${lastDay}`;
         }
         
         const res = await fetch(url);
@@ -698,27 +478,18 @@ async function descargarReporte() {
             return;
         }
         
-        const totalVentas = ventas.length;
-        const totalKilos = ventas.reduce((s, v) => s + parseFloat(v.kilos), 0);
-        const totalIngresos = ventas.reduce((s, v) => s + parseFloat(v.total), 0);
-        const pendientes = ventas.filter(v => v.estado === 'pendiente').length;
-        
         let contenido = `LAVANDERÍA - REPORTE ${reporteActual.toUpperCase()}\n`;
         contenido += `Período: ${periodo}\n`;
         contenido += `Fecha generación: ${new Date().toLocaleString('es-PE')}\n`;
         contenido += `Precio por kilo: S/ 4.00\n`;
         contenido += `================================\n`;
-        contenido += `Total ventas: ${totalVentas}\n`;
-        contenido += `Total kilos: ${totalKilos.toFixed(1)} kg\n`;
-        contenido += `Ingresos totales: S/ ${totalIngresos.toFixed(2)}\n`;
-        contenido += `Pedidos pendientes: ${pendientes}\n`;
-        contenido += `Pedidos pagados: ${totalVentas - pendientes}\n`;
-        contenido += `================================\n\n`;
-        contenido += `DETALLE DE VENTAS:\n`;
+        contenido += `Total ventas: ${ventas.length}\n`;
+        contenido += `Total kilos: ${ventas.reduce((s, v) => s + parseFloat(v.kilos), 0).toFixed(1)} kg\n`;
+        contenido += `Ingresos totales: S/ ${ventas.reduce((s, v) => s + parseFloat(v.total), 0).toFixed(2)}\n`;
+        contenido += `================================\n\nDETALLE:\n`;
         
         ventas.forEach(v => {
-            const fechaVenta = v.fecha_registro ? v.fecha_registro.split('T')[0] : v.fecha;
-            contenido += `- ${fechaVenta} | ${v.nombre_cliente} | ${v.kilos} kg | S/ ${parseFloat(v.total).toFixed(2)} | ${v.estado === 'pendiente' ? 'PENDIENTE' : 'PAGADO'}\n`;
+            contenido += `- ${(v.fecha_registro || '').split(' ')[0]} | ${v.nombre_cliente} | ${v.kilos} kg | S/ ${parseFloat(v.total).toFixed(2)} | ${v.estado === 'pendiente' ? 'PENDIENTE' : 'PAGADO'}\n`;
         });
         
         const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
@@ -736,44 +507,100 @@ async function descargarReporte() {
 }
 
 // ============================================
-// EVENT LISTENERS Y INICIALIZACIÓN
+// BUSCADORES
+// ============================================
+
+function buscarEnVentasHoy(termino) {
+    const searchTerm = termino.toLowerCase().trim();
+    const resultados = ventasHoyOriginal.filter(v => (v.nombre_cliente || v.nombreCliente).toLowerCase().includes(searchTerm));
+    const listaVentas = document.getElementById('listaVentas');
+    
+    if (!resultados.length) {
+        listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-search"></i></div><p>No se encontraron resultados</p></div>`;
+        return;
+    }
+    listaVentas.innerHTML = `<div class="ventas-list">${resultados.map(buildCard).join('')}</div>`;
+    document.getElementById('clearSearchHoy').style.display = searchTerm ? 'flex' : 'none';
+}
+
+function buscarEnHistorial(termino) {
+    const searchTerm = termino.toLowerCase().trim();
+    const resultados = ventasHistorialOriginal.filter(v => (v.nombre_cliente || v.nombreCliente).toLowerCase().includes(searchTerm));
+    const listaHistorial = document.getElementById('listaHistorial');
+    
+    if (!resultados.length) {
+        listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-search"></i></div><p>No se encontraron resultados</p></div>`;
+        return;
+    }
+    listaHistorial.innerHTML = `<div class="ventas-list">${resultados.map(buildCard).join('')}</div>`;
+    actualizarResumenHistorial(resultados);
+    document.getElementById('clearSearchHistorial').style.display = searchTerm ? 'flex' : 'none';
+}
+
+function actualizarResumenHistorial(ventas) {
+    const totalV = ventas.length;
+    const totalK = ventas.reduce((a, v) => a + parseFloat(v.kilos), 0);
+    const totalI = ventas.reduce((a, v) => a + parseFloat(v.total), 0);
+    const pagados = ventas.filter(v => v.estado === 'cancelado').length;
+    
+    document.getElementById('hTotalVentas').textContent = totalV;
+    document.getElementById('hTotalKilos').textContent = totalK.toFixed(1);
+    document.getElementById('hTotalIngreso').textContent = 'S/ ' + totalI.toFixed(2);
+    document.getElementById('hPagados').textContent = pagados;
+}
+
+function resetSearchHoy() {
+    document.getElementById('searchHoy').value = '';
+    mostrarVentasHoy(ventasHoyOriginal);
+}
+function resetSearchHistorial() {
+    document.getElementById('searchHistorial').value = '';
+    mostrarHistorial(ventasHistorialOriginal);
+}
+
+function mostrarVentasHoy(ventas) {
+    const listaVentas = document.getElementById('listaVentas');
+    if (!ventas.length) {
+        listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-soap"></i></div><p>Sin ventas por hoy</p></div>`;
+        return;
+    }
+    listaVentas.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
+}
+
+function mostrarHistorial(ventas) {
+    const listaHistorial = document.getElementById('listaHistorial');
+    if (!ventas.length) {
+        listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-search"></i></div><p>No se encontraron resultados</p></div>`;
+        return;
+    }
+    listaHistorial.innerHTML = `<div class="ventas-list">${ventas.map(buildCard).join('')}</div>`;
+}
+
+// ============================================
+// INICIALIZACIÓN
 // ============================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    updateDateDisplay();
+    const now = new Date();
+    const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('drawer-fecha').textContent = now.toLocaleDateString('es-PE', opts);
     
-    const fechaDia = document.getElementById('fechaDia');
-    if (fechaDia) {
-        fechaDia.value = getLocalDateString();
-    }
+    document.getElementById('fechaDia').value = getLocalDateString();
+    actualizarBadge();
     
-    // Actualizar ventas de hoy cada 15 segundos
     setInterval(() => {
-        if (document.getElementById('page-hoy').classList.contains('active')) {
-            cargarVentasHoy();
-        }
-        if (document.getElementById('page-historial').classList.contains('active') && fechaHistorialActual) {
-            buscarHistorialPorFecha(fechaHistorialActual);
-        }
+        if (document.getElementById('page-hoy').classList.contains('active')) cargarVentasHoy();
+        if (document.getElementById('page-historial').classList.contains('active') && fechaHistorialActual) buscarHistorialPorFecha(fechaHistorialActual);
     }, 15000);
     
-    setInterval(actualizarBadge, 30000);
     cargarVentasHoy();
     
-    const searchHoy = document.getElementById('searchHoy');
-    if (searchHoy) searchHoy.addEventListener('input', (e) => buscarEnVentasHoy(e.target.value));
-    
-    const searchHistorial = document.getElementById('searchHistorial');
-    if (searchHistorial) searchHistorial.addEventListener('input', (e) => buscarEnHistorial(e.target.value));
-    
-    const clearSearchHoy = document.getElementById('clearSearchHoy');
-    if (clearSearchHoy) clearSearchHoy.addEventListener('click', () => resetSearchHoy());
-    
-    const clearSearchHistorial = document.getElementById('clearSearchHistorial');
-    if (clearSearchHistorial) clearSearchHistorial.addEventListener('click', () => resetSearchHistorial());
+    document.getElementById('searchHoy').addEventListener('input', (e) => buscarEnVentasHoy(e.target.value));
+    document.getElementById('searchHistorial').addEventListener('input', (e) => buscarEnHistorial(e.target.value));
+    document.getElementById('clearSearchHoy').addEventListener('click', () => resetSearchHoy());
+    document.getElementById('clearSearchHistorial').addEventListener('click', () => resetSearchHistorial());
     
     setReporte('diario');
 });
 
-// Función para depuración (opcional)
 console.log('LavaSoft - Sistema cargado correctamente');
