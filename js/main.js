@@ -86,7 +86,7 @@ function goTo(page) {
 async function actualizarBadge() {
     try {
         const hoy = getLocalDateString();
-        const res = await fetch(`${API}?desde=${hoy}&hasta=${hoy}`);
+        const res = await fetch(`${API}?desde=${hoy}&hasta=${hoy}&t=${Date.now()}`);
         const ventas = await res.json();
         
         let total = 0;
@@ -195,7 +195,7 @@ async function guardarVenta() {
 }
 
 // ============================================
-// BUILD CARD (con hora correcta)
+// BUILD CARD (CORREGIDO - para Supabase)
 // ============================================
 
 function buildCard(v) {
@@ -206,18 +206,37 @@ function buildCard(v) {
     const nombreCompleto = v.nombre_cliente || v.nombreCliente || 'Cliente';
     const initials = nombreCompleto.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
     
+    // CORREGIDO: Extraer hora correctamente desde fecha_registro (formato ISO)
     let hora = '--:--';
-    if (v.fecha_registro && typeof v.fecha_registro === 'string' && v.fecha_registro.includes(' ')) {
-        const horaParte = v.fecha_registro.split(' ')[1];
-        if (horaParte) {
-            const hm = horaParte.split(':');
-            if (hm.length >= 2) {
-                hora = `${hm[0]}:${hm[1]}`;
+    if (v.fecha_registro) {
+        try {
+            // Si viene como "2026-04-26T17:59:56" (formato ISO)
+            if (v.fecha_registro.includes('T')) {
+                const horaParte = v.fecha_registro.split('T')[1];
+                if (horaParte) {
+                    const hm = horaParte.split(':');
+                    if (hm.length >= 2) {
+                        hora = `${hm[0]}:${hm[1]}`;
+                    }
+                }
+            } 
+            // Si viene como "2026-04-26 17:59:56" (formato espacio)
+            else if (v.fecha_registro.includes(' ')) {
+                const horaParte = v.fecha_registro.split(' ')[1];
+                if (horaParte) {
+                    const hm = horaParte.split(':');
+                    if (hm.length >= 2) {
+                        hora = `${hm[0]}:${hm[1]}`;
+                    }
+                }
             }
+        } catch(e) { 
+            console.log('Error al parsear hora:', e);
         }
     }
     
-    const idVenta = v.id_venta || v.idVenta;
+    // CORREGIDO: Usar id_venta (el nombre correcto de Supabase)
+    const idVenta = v.id_venta;
     
     const payBtn = v.estado === 'pendiente'
         ? `<button class="btn btn-pay" onclick="pagarVenta(${idVenta}, '${nombreCompleto.replace(/'/g, "\\'")}')">
@@ -261,8 +280,10 @@ async function cargarVentasHoy() {
         const res = await fetch(`${API}?desde=${hoy}&hasta=${hoy}&t=${Date.now()}`);
         const ventas = await res.json();
         
+        console.log('Ventas recibidas:', ventas); // Debug: ver qué llega
+        
         if (!Array.isArray(ventas)) {
-            listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error: Respuesta inválida</p></div>`;
+            listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error: Respuesta inválida</p><small>${JSON.stringify(ventas)}</small></div>`;
             return;
         }
         
@@ -296,7 +317,7 @@ async function cargarVentasHoy() {
         
     } catch (error) {
         console.error('Error:', error);
-        listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-plug"></i></div><p>Sin conexión al servidor</p></div>`;
+        listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-plug"></i></div><p>Sin conexión al servidor</p><small>${error.message}</small></div>`;
     }
 }
 
@@ -329,6 +350,8 @@ async function buscarHistorialPorFecha(fecha) {
     try {
         const res = await fetch(`${API}?desde=${fecha}&hasta=${fecha}&t=${Date.now()}`);
         const ventas = await res.json();
+        
+        console.log('Historial recibido:', ventas); // Debug
         
         if (!Array.isArray(ventas)) {
             if (listaHistorial) listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error en la respuesta</p></div>`;
@@ -449,7 +472,6 @@ function setReporte(tipo) {
         botonesReporte.forEach(btn => btn.classList.remove('active'));
     }
     
-    // Activar el botón correcto según el tipo
     setTimeout(function() {
         const botones = document.querySelectorAll('.btn-report');
         for (let i = 0; i < botones.length; i++) {
@@ -497,7 +519,7 @@ async function generarVistaPrevia() {
             url += `desde=${year}-${month}-01&hasta=${year}-${month}-${lastDay}`;
         }
         
-        const res = await fetch(url);
+        const res = await fetch(url + `&t=${Date.now()}`);
         const ventas = await res.json();
         
         const previewDiv = document.getElementById('reportPreview');
@@ -523,7 +545,7 @@ async function generarVistaPrevia() {
             </div>
             <hr style="margin: 12px 0">
             <div style="font-size: 13px; max-height: 200px; overflow-y: auto">
-                ${ventas.slice(0, 10).map(v => `<div>• ${(v.fecha_registro || '').split(' ')[0] || v.fecha} | ${v.nombre_cliente} | S/ ${parseFloat(v.total).toFixed(2)}</div>`).join('')}
+                ${ventas.slice(0, 10).map(v => `<div>• ${(v.fecha_registro || '').split('T')[0] || v.fecha} | ${v.nombre_cliente} | S/ ${parseFloat(v.total).toFixed(2)}</div>`).join('')}
                 ${ventas.length > 10 ? `<div style="color: gray; margin-top: 8px">... y ${ventas.length - 10} más</div>` : ''}
             </div>
         `;
@@ -560,7 +582,7 @@ async function descargarReporte() {
             url += `desde=${year}-${month}-01&hasta=${year}-${month}-${lastDay}`;
         }
         
-        const res = await fetch(url);
+        const res = await fetch(url + `&t=${Date.now()}`);
         const ventas = await res.json();
         
         if (!ventas || !ventas.length) {
@@ -579,7 +601,7 @@ async function descargarReporte() {
         contenido += `================================\n\nDETALLE:\n`;
         
         ventas.forEach(v => {
-            contenido += `- ${(v.fecha_registro || '').split(' ')[0]} | ${v.nombre_cliente} | ${v.kilos} kg | S/ ${parseFloat(v.total).toFixed(2)} | ${v.estado === 'pendiente' ? 'PENDIENTE' : 'PAGADO'}\n`;
+            contenido += `- ${(v.fecha_registro || '').split('T')[0]} | ${v.nombre_cliente} | ${v.kilos} kg | S/ ${parseFloat(v.total).toFixed(2)} | ${v.estado === 'pendiente' ? 'PENDIENTE' : 'PAGADO'}\n`;
         });
         
         const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
@@ -695,7 +717,6 @@ function initCalculoTotal() {
     const totalSpan = document.getElementById('totalMostrado');
     
     if (kilosInput && totalSpan) {
-        // Eliminar event listeners anteriores para evitar duplicados
         const newKilosInput = kilosInput.cloneNode(true);
         kilosInput.parentNode.replaceChild(newKilosInput, kilosInput);
         
@@ -705,7 +726,6 @@ function initCalculoTotal() {
             totalSpan.textContent = total.toFixed(2);
         });
         
-        // Actualizar referencia global
         document.getElementById('kilos');
     }
 }
@@ -725,7 +745,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     actualizarBadge();
     
-    // Auto-refresh cada 15 segundos
     setInterval(() => {
         const pageHoy = document.getElementById('page-hoy');
         if (pageHoy && pageHoy.classList.contains('active')) {
@@ -751,7 +770,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearSearchHistorial = document.getElementById('clearSearchHistorial');
     if (clearSearchHistorial) clearSearchHistorial.addEventListener('click', () => resetSearchHistorial());
     
-    // ✅ INICIALIZAR CÁLCULO DEL TOTAL
     setTimeout(function() {
         initCalculoTotal();
     }, 500);
