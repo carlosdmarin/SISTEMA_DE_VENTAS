@@ -13,69 +13,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $supabase_url = 'https://ownjmawswuygfhltlzts.supabase.co';
 $supabase_key = 'sb_publishable_5ceuA5WElQ_dB31Oddj1bg_Pa-7uFZz';
 
-function llamarSupabase($endpoint) {
+function llamarSupabase($endpoint, $method = 'GET', $data = null) {
     global $supabase_url, $supabase_key;
     
     $ch = curl_init($supabase_url . '/rest/v1/' . $endpoint);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    
+    $headers = [
         'apikey: ' . $supabase_key,
         'Authorization: Bearer ' . $supabase_key,
         'Content-Type: application/json'
-    ]);
+    ];
+    
+    if ($method === 'GET') {
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    } elseif ($method === 'POST') {
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    } elseif ($method === 'PUT') {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    }
     
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    return json_decode($response, true);
+    if ($method === 'GET') {
+        return json_decode($response, true);
+    }
+    
+    return ['success' => $httpCode >= 200 && $httpCode < 300];
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
-    // Para pruebas - devuelve todas las ventas (como test.php)
-    if (isset($_GET['todas'])) {
-        $result = llamarSupabase('ventas?select=*');
-        echo json_encode($result ?: []);
+    // Obtener todas las ventas
+    $todas = llamarSupabase('ventas?select=*&order=fecha_registro.desc');
+    
+    if (!is_array($todas)) {
+        echo json_encode([]);
         exit;
     }
     
-    // Para ventas de hoy - usa el mismo método que test.php pero filtrando
-    if (isset($_GET['hoy'])) {
-        $todas = llamarSupabase('ventas?select=*');
-        $hoy = date('Y-m-d');
-        $filtradas = [];
-        if (is_array($todas)) {
-            foreach ($todas as $v) {
-                $fecha_supabase = substr($v['fecha_registro'], 0, 10);
-                if ($fecha_supabase === $hoy) {
-                    $filtradas[] = $v;
-                }
-            }
-        }
-        echo json_encode($filtradas);
-        exit;
-    }
-    
-    // Para historial por rango de fechas
+    // Si hay filtro por rango de fechas
     if (isset($_GET['desde']) && isset($_GET['hasta'])) {
-        $todas = llamarSupabase('ventas?select=*');
         $desde = $_GET['desde'];
         $hasta = $_GET['hasta'];
         $filtradas = [];
-        if (is_array($todas)) {
-            foreach ($todas as $v) {
-                $fecha_supabase = substr($v['fecha_registro'], 0, 10);
-                if ($fecha_supabase >= $desde && $fecha_supabase <= $hasta) {
-                    $filtradas[] = $v;
-                }
+        
+        foreach ($todas as $v) {
+            // Extraer solo la fecha YYYY-MM-DD del campo fecha_registro
+            $fecha_venta = substr($v['fecha_registro'], 0, 10);
+            if ($fecha_venta >= $desde && $fecha_venta <= $hasta) {
+                $filtradas[] = $v;
             }
         }
+        
         echo json_encode($filtradas);
-        exit;
+    } 
+    // Si quieren todas
+    else {
+        echo json_encode($todas);
     }
-    
-    echo json_encode([]);
     exit;
 }
 
@@ -90,20 +93,8 @@ if ($method === 'POST') {
         'fecha_registro' => date('Y-m-d H:i:s')
     ];
     
-    $ch = curl_init($supabase_url . '/rest/v1/ventas');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'apikey: ' . $supabase_key,
-        'Authorization: Bearer ' . $supabase_key,
-        'Content-Type: application/json'
-    ]);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($venta));
-    
-    $response = curl_exec($ch);
-    curl_close($ch);
-    
-    echo json_encode(['success' => true]);
+    $result = llamarSupabase('ventas', 'POST', $venta);
+    echo json_encode(['success' => $result]);
     exit;
 }
 
@@ -111,21 +102,8 @@ if ($method === 'PUT') {
     $path = $_SERVER['PATH_INFO'] ?? '';
     if (preg_match('/^\/(\d+)\/pagar$/', $path, $matches)) {
         $id = $matches[1];
-        
-        $ch = curl_init($supabase_url . '/rest/v1/ventas?id_venta=eq.' . $id);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'apikey: ' . $supabase_key,
-            'Authorization: Bearer ' . $supabase_key,
-            'Content-Type: application/json'
-        ]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['estado' => 'cancelado']));
-        
-        curl_exec($ch);
-        curl_close($ch);
-        
-        echo json_encode(['success' => true]);
+        $result = llamarSupabase('ventas?id_venta=eq.' . $id, 'PUT', ['estado' => 'cancelado']);
+        echo json_encode(['success' => $result]);
         exit;
     }
 }
