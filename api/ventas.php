@@ -47,8 +47,28 @@ if ($method === 'GET') {
         $desde = $_GET['desde'];
         $hasta = $_GET['hasta'];
         
-        // Consulta corregida - sin el 'T23:59:59' que causaba problemas
-        $result = supabase("ventas?select=*&fecha_registro=gte." . $desde . "&fecha_registro=lte." . $hasta);
+        // CORREGIDO: Usar CAST para comparar solo la fecha
+        $result = supabase("rpc/get_ventas_por_fecha", "POST", [
+            'desde' => $desde,
+            'hasta' => $hasta
+        ]);
+        
+        // Si la función RPC no existe, usar este método alternativo
+        if (isset($result['error']) && strpos($result['detail'], 'function') !== false) {
+            // Obtener todos y filtrar en PHP (temporal)
+            $todas = supabase("ventas?select=*", "GET");
+            $filtered = [];
+            if (is_array($todas)) {
+                foreach ($todas as $v) {
+                    $fecha_supabase = substr($v['fecha_registro'], 0, 10);
+                    if ($fecha_supabase >= $desde && $fecha_supabase <= $hasta) {
+                        $filtered[] = $v;
+                    }
+                }
+            }
+            echo json_encode($filtered);
+            exit;
+        }
         
         echo json_encode($result ?: []);
         exit;
