@@ -393,7 +393,6 @@ async function buscarHistorialPorFecha(fecha) {
 // ============================================
 // PAGAR VENTA - CORREGIDA
 // ============================================
-
 async function pagarVenta(id, nombre) {
     console.log('Intentando pagar venta - ID:', id, 'Cliente:', nombre);
     
@@ -410,7 +409,8 @@ async function pagarVenta(id, nombre) {
     
     if (result.isConfirmed) {
         try {
-            const url = `${API}/${id}/pagar`;
+            // CAMBIADO: Enviar el ID como query string en lugar de en la ruta
+            const url = `${API}?pagar=${id}`;
             console.log('URL de la petición:', url);
             
             const response = await fetch(url, { 
@@ -433,6 +433,7 @@ async function pagarVenta(id, nombre) {
                     showConfirmButton: false 
                 });
                 
+                // Recargar todas las vistas
                 await cargarVentasHoy();
                 await actualizarBadge();
                 
@@ -459,7 +460,6 @@ async function pagarVenta(id, nombre) {
         }
     }
 }
-
 // ============================================
 // FECHAS RÁPIDAS
 // ============================================
