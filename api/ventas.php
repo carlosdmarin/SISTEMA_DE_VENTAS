@@ -31,7 +31,7 @@ function llamarSupabase($endpoint, $method = 'GET', $data = null) {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    } elseif ($method === 'PATCH') {  // CAMBIADO: Usar PATCH en lugar de PUT
+    } elseif ($method === 'PATCH') {
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
@@ -45,7 +45,7 @@ function llamarSupabase($endpoint, $method = 'GET', $data = null) {
         return json_decode($response, true);
     }
     
-    return ['success' => $httpCode >= 200 && $httpCode < 300, 'http_code' => $httpCode];
+    return ['success' => $httpCode >= 200 && $httpCode < 300];
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -66,7 +66,6 @@ if ($method === 'GET') {
         $filtradas = [];
         
         foreach ($todas as $v) {
-            // Extraer solo la fecha YYYY-MM-DD del campo fecha_registro
             $fecha_venta = substr($v['fecha_registro'], 0, 10);
             if ($fecha_venta >= $desde && $fecha_venta <= $hasta) {
                 $filtradas[] = $v;
@@ -74,9 +73,7 @@ if ($method === 'GET') {
         }
         
         echo json_encode($filtradas);
-    } 
-    // Si quieren todas
-    else {
+    } else {
         echo json_encode($todas);
     }
     exit;
@@ -98,42 +95,23 @@ if ($method === 'POST') {
     exit;
 }
 
+// CAMBIADO: Recibir el ID por query string en lugar de PATH_INFO
 if ($method === 'PUT') {
-    // Obtener el path de diferentes maneras posibles
-    $path = null;
-    
-    // Intentar obtener PATH_INFO
-    if (isset($_SERVER['PATH_INFO'])) {
-        $path = $_SERVER['PATH_INFO'];
-    }
-    // Si no, intentar con REQUEST_URI
-    else if (isset($_SERVER['REQUEST_URI'])) {
-        $uri = $_SERVER['REQUEST_URI'];
-        // Remover el script name de la URI
-        $script = $_SERVER['SCRIPT_NAME'];
-        $path = str_replace($script, '', $uri);
-        // Remover query string si existe
-        $path = strtok($path, '?');
-    }
-    
-    error_log("Path recibido: " . $path); // Debug
-    
-    if ($path && preg_match('/^\/(\d+)\/pagar$/', $path, $matches)) {
-        $id = $matches[1];
-        error_log("Actualizando venta ID: " . $id); // Debug
+    if (isset($_GET['pagar'])) {
+        $id = $_GET['pagar'];
         
-        // Usar PATCH en lugar de PUT
+        // Actualizar el estado en Supabase usando PATCH
         $result = llamarSupabase('ventas?id_venta=eq.' . $id, 'PATCH', ['estado' => 'cancelado']);
         
         if ($result['success']) {
             echo json_encode(['success' => true]);
         } else {
-            echo json_encode(['success' => false, 'error' => 'Error al actualizar en Supabase', 'http_code' => $result['http_code']]);
+            echo json_encode(['success' => false, 'error' => 'Error en Supabase']);
         }
         exit;
     }
     
-    echo json_encode(['success' => false, 'error' => 'Ruta no válida', 'path' => $path]);
+    echo json_encode(['success' => false, 'error' => 'ID no proporcionado']);
     exit;
 }
 
