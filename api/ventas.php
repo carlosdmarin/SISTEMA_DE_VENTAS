@@ -43,14 +43,18 @@ function supabase($endpoint, $method = 'GET', $data = null) {
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
+    // IMPORTANTE: Manejar tanto 'hoy' como 'desde/hasta'
     if (isset($_GET['hoy'])) {
         $hoy = date('Y-m-d');
         $result = supabase("ventas?select=*&fecha_registro=gte." . $hoy . "&fecha_registro=lt." . date('Y-m-d', strtotime('+1 day')));
         echo json_encode($result ?: []);
         exit;
     }
+    // CORREGIDO: Manejar desde y hasta para el historial y badge
     if (isset($_GET['desde']) && isset($_GET['hasta'])) {
-        $result = supabase("ventas?select=*&fecha_registro=gte." . $_GET['desde'] . "&fecha_registro=lte." . $_GET['hasta']);
+        $desde = $_GET['desde'];
+        $hasta = $_GET['hasta'];
+        $result = supabase("ventas?select=*&fecha_registro=gte." . $desde . "&fecha_registro=lte." . $hasta . "T23:59:59");
         echo json_encode($result ?: []);
         exit;
     }
@@ -75,7 +79,6 @@ if ($method === 'POST') {
 if ($method === 'PUT') {
     $path = $_SERVER['PATH_INFO'] ?? '';
     if (preg_match('/^\/(\d+)\/pagar$/', $path, $matches)) {
-        // CORREGIDO: 'cancelado' en lugar de 'pagado'
         $result = supabase("ventas?id_venta=eq." . $matches[1], "PUT", ['estado' => 'cancelado']);
         echo json_encode(['success' => true]);
         exit;
