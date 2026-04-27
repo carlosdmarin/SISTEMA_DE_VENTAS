@@ -206,11 +206,9 @@ function buildCard(v) {
     const nombreCompleto = v.nombre_cliente || v.nombreCliente || 'Cliente';
     const initials = nombreCompleto.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
     
-    // CORREGIDO: Extraer hora correctamente desde fecha_registro (formato ISO)
     let hora = '--:--';
     if (v.fecha_registro) {
         try {
-            // Si viene como "2026-04-26T17:59:56" (formato ISO)
             if (v.fecha_registro.includes('T')) {
                 const horaParte = v.fecha_registro.split('T')[1];
                 if (horaParte) {
@@ -220,7 +218,6 @@ function buildCard(v) {
                     }
                 }
             } 
-            // Si viene como "2026-04-26 17:59:56" (formato espacio)
             else if (v.fecha_registro.includes(' ')) {
                 const horaParte = v.fecha_registro.split(' ')[1];
                 if (horaParte) {
@@ -235,7 +232,6 @@ function buildCard(v) {
         }
     }
     
-    // CORREGIDO: Usar id_venta (el nombre correcto de Supabase)
     const idVenta = v.id_venta;
     
     const payBtn = v.estado === 'pendiente'
@@ -280,7 +276,7 @@ async function cargarVentasHoy() {
         const res = await fetch(`${API}?desde=${hoy}&hasta=${hoy}&t=${Date.now()}`);
         const ventas = await res.json();
         
-        console.log('Ventas recibidas:', ventas); // Debug: ver qué llega
+        console.log('Ventas recibidas:', ventas);
         
         if (!Array.isArray(ventas)) {
             listaVentas.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error: Respuesta inválida</p><small>${JSON.stringify(ventas)}</small></div>`;
@@ -351,7 +347,7 @@ async function buscarHistorialPorFecha(fecha) {
         const res = await fetch(`${API}?desde=${fecha}&hasta=${fecha}&t=${Date.now()}`);
         const ventas = await res.json();
         
-        console.log('Historial recibido:', ventas); // Debug
+        console.log('Historial recibido:', ventas);
         
         if (!Array.isArray(ventas)) {
             if (listaHistorial) listaHistorial.innerHTML = `<div class="empty"><div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div><p>Error en la respuesta</p></div>`;
@@ -395,10 +391,12 @@ async function buscarHistorialPorFecha(fecha) {
 }
 
 // ============================================
-// PAGAR VENTA
+// PAGAR VENTA - CORREGIDA
 // ============================================
 
 async function pagarVenta(id, nombre) {
+    console.log('Intentando pagar venta - ID:', id, 'Cliente:', nombre);
+    
     const result = await Swal.fire({
         title: '¿Confirmar pago?',
         html: `Marcar venta de <b>${nombre}</b> como pagada`,
@@ -412,13 +410,31 @@ async function pagarVenta(id, nombre) {
     
     if (result.isConfirmed) {
         try {
-            const response = await fetch(`${API}/${id}/pagar`, { method: 'PUT' });
+            const url = `${API}/${id}/pagar`;
+            console.log('URL de la petición:', url);
+            
+            const response = await fetch(url, { 
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            console.log('Respuesta HTTP status:', response.status);
             const data = await response.json();
+            console.log('Respuesta del servidor:', data);
             
             if (data.success) {
-                Swal.fire({ icon: 'success', title: '¡Pagado!', timer: 1500, showConfirmButton: false });
-                cargarVentasHoy();
-                actualizarBadge();
+                Swal.fire({ 
+                    icon: 'success', 
+                    title: '¡Pagado!', 
+                    text: `Venta de ${nombre} marcada como pagada`,
+                    timer: 1500, 
+                    showConfirmButton: false 
+                });
+                
+                await cargarVentasHoy();
+                await actualizarBadge();
                 
                 const pageHistorial = document.getElementById('page-historial');
                 if (pageHistorial && pageHistorial.classList.contains('active') && fechaHistorialActual) {
@@ -427,14 +443,19 @@ async function pagarVenta(id, nombre) {
                 
                 const pageReportes = document.getElementById('page-reportes');
                 if (pageReportes && pageReportes.classList.contains('active')) {
-                    generarVistaPrevia();
+                    await generarVistaPrevia();
                 }
             } else {
                 throw new Error(data.error || 'Error al pagar');
             }
         } catch (error) {
-            console.error('Error:', error);
-            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo marcar como pagado', confirmButtonColor: '#3182ce' });
+            console.error('Error detallado:', error);
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'Error', 
+                text: `No se pudo marcar como pagado: ${error.message}`, 
+                confirmButtonColor: '#3182ce' 
+            });
         }
     }
 }
