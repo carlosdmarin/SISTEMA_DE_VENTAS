@@ -10,7 +10,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Usar las mismas variables que funcionaron en test.php
 $supabase_url = 'https://ownjmawswuygfhltlzts.supabase.co';
 $supabase_key = 'sb_publishable_5ceuA5WElQ_dB31Oddj1bg_Pa-7uFZz';
 
@@ -32,9 +31,13 @@ function supabase($endpoint, $method = 'GET', $data = null) {
     }
     
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    return json_decode($response, true);
+    if ($httpCode >= 200 && $httpCode < 300) {
+        return json_decode($response, true);
+    }
+    return ['error' => "HTTP $httpCode", 'detail' => $response];
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -65,14 +68,15 @@ if ($method === 'POST') {
         'fecha_registro' => date('Y-m-d H:i:s')
     ];
     $result = supabase("ventas", "POST", $venta);
-    echo json_encode(['success' => true, 'id' => $result[0]['id'] ?? null]);
+    echo json_encode(['success' => true, 'id' => $result[0]['id_venta'] ?? null]);
     exit;
 }
 
 if ($method === 'PUT') {
     $path = $_SERVER['PATH_INFO'] ?? '';
     if (preg_match('/^\/(\d+)\/pagar$/', $path, $matches)) {
-        $result = supabase("ventas?id_venta=eq." . $matches[1], "PUT", ['estado' => 'pagado']);
+        // CORREGIDO: 'cancelado' en lugar de 'pagado'
+        $result = supabase("ventas?id_venta=eq." . $matches[1], "PUT", ['estado' => 'cancelado']);
         echo json_encode(['success' => true]);
         exit;
     }
